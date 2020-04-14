@@ -1,11 +1,20 @@
 package au.gov.nla.imageanalysis.service;
 
 
+import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
 import au.gov.nla.imageanalysis.util.HttpHelper;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.rekognition.AmazonRekognition;
+import com.amazonaws.services.rekognition.AmazonRekognitionClientBuilder;
+import com.amazonaws.services.rekognition.model.*;
 import com.google.cloud.vision.v1.AnnotateImageResponse;
 import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
 import org.apache.tomcat.util.http.fileupload.IOUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.ResourceLoader;
@@ -17,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,7 +36,6 @@ import java.util.stream.Collectors;
 import com.google.cloud.vision.v1.AnnotateImageRequest;
 import com.google.cloud.vision.v1.BatchAnnotateImagesResponse;
 import com.google.cloud.vision.v1.Feature.Type;
-import com.google.cloud.vision.v1.Image;
 import com.google.cloud.vision.v1.ImageAnnotatorClient;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
@@ -72,6 +81,57 @@ public class ImageService {
         }
     }
 
+    public JSONObject amazonDetectLabels(ApplicationConfiguration config) throws IOException {
+        JSONObject jsonObject =new JSONObject();
+        ByteBuffer imageBytes;
+        BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
+        AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
+                .withRegion(Regions.AP_SOUTHEAST_2)
+                .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                .build();
+        try{
+            InputStream in = get();
+            imageBytes = ByteBuffer.wrap(com.amazonaws.util.IOUtils.toByteArray(in));
+            DetectLabelsRequest request = new DetectLabelsRequest()
+                    .withImage(new Image().withBytes(imageBytes)).withMaxLabels(10).withMinConfidence(77F);
+            try {
+                DetectLabelsResult result = client.detectLabels(request);
+                List<Label> labels = result.getLabels();
+
+                //System.out.println("Results from amazon Rekognition:");
+                ArrayList list = new ArrayList();
+                for (Label l: labels){
+                    String label = l.getName();
+                    float relevance = l.getConfidence();
+                    JSONObject jsonObject1 = new JSONObject();
+                    jsonObject1.put("label",label);
+                    jsonObject1.put("relevance",relevance);
+                    list.add(jsonObject1);
+                }
+                JSONObject jsonObject2 = new JSONObject();
+                jsonObject2.put("label",list);
+                JSONArray jsonArray = jsonObject2.getJSONArray("label");
+                jsonObject.put("id","2");
+                jsonObject.put("labels",jsonArray);
+                //System.out.println(jsonObject.toString());
+
+//                System.out.println("Detected labels for " + getUrl());
+//                for (Label label: labels) {
+//                    System.out.println(label.getName() + ": " + label.getConfidence().toString());
+//                }
+
+            } catch (AmazonRekognitionException e) {
+                e.printStackTrace();
+            }
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return jsonObject;
+
+    }
+
     //google's method to send image for labeling. only for reference because an easier way to do this is discovered
 //    public void detectLabels( PrintStream out) throws Exception, IOException {
 //        List<AnnotateImageRequest> requests = new ArrayList<>();
@@ -103,6 +163,8 @@ public class ImageService {
 //            }
 //        }
 //    }
+
+
 
      //this method is current in image controller. It should be here. experiencing problems with nullpointerexception. need to be fixed
 //    public void googleImageLabeling(){
