@@ -29,5 +29,5 @@ build/
 
 ### VS Code ###
 .vscode/
-/Users/jiaweiwang/dev/image-analysis/src/main/resources/application.properties
-/Users/jiaweiwang/dev/image-analysis/src/main/resources/primeval-nectar-271413-8f710b80c8fc.json
+application.properties
+primeval-nectar-271413-8f710b80c8fc.json
