@@ -9,6 +9,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.Resource;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
 @Controller
 
 public class ImageController {
+
+    private Logger log = LoggerFactory.getLogger(ImageController.class);
 
     @Autowired
     //ResourceLoader is to load and  store image data in Resource class
@@ -51,10 +55,8 @@ public class ImageController {
         String urlCorrect = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
         //String urlReplacement = "https://assets.readitforward.com/wp-content/uploads/2019/02/RIF-Historical-Fiction-1200x900-830x625.jpg";
         String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-159043847-t&md5=O6N-K5SwjBH2ApTGObbxvA&expires=1587996000";
-        System.out.println("Correct Url:");
-        System.out.println(urlCorrect);
-        System.out.println("Replacement URL:");
-        System.out.println(urlReplacement);
+        log.info("Correct Url: {}",urlCorrect);
+        log.info("Replacement URL: {}", urlReplacement);
         //ImageService imageService = new ImageService(urlCorrect);
         ImageService imageService = new ImageService(urlReplacement);
 
@@ -63,19 +65,17 @@ public class ImageController {
 
         try{
             for (String key: service){
-                System.out.println("Parameters contains:");
-                System.out.println(key);
                 if (key.equals("1") ) {
-                    System.out.println("Service code is 1, this is google service");
+                    log.info("Parameters contains: {}, the result contains google service",key);
                     resultList.add(googleImageLabeling(imageService));
                 }else if(key.equals("2") ){
-                    System.out.println("Service code is 2, this is amonzon service");
+                    log.info("Parameters contains: {}, the result contains aws service",key);
                     resultList.add(imageService.amazonDetectLabels(config));
                 }else if (key.equals("3") ){
-                    System.out.println("Service code is 3, this is to show the image is download from DLC");
+                    log.info("Parameter is {}, this is to show the image is download from DLC",key);
                     imageService.callImageService(response);
                 }else if (key.equals("4") ){
-                    System.out.println("Service code is 4, this is to save the image in DLC in local file");
+                    log.info("Parameter is {}, this is to save the image in DLC in local file",key);
                     imageService.displayImage();
                 }
             }
@@ -89,7 +89,7 @@ public class ImageController {
         jsonResult.put("pid",pid);
         jsonResult.put("service",jsonArray);
 
-        System.out.println(jsonResult.toString());
+        log.info(jsonResult.toString());
 
         return jsonResult.toString();
     }
