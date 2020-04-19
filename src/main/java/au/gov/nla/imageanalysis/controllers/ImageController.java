@@ -3,17 +3,12 @@ package au.gov.nla.imageanalysis.controllers;
 
 import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
 import au.gov.nla.imageanalysis.service.ImageService;
-import com.fasterxml.jackson.databind.util.JSONPObject;
-import com.google.cloud.vision.v1.*;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -24,21 +19,19 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.lang.reflect.Array;
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 @Controller
-
 public class ImageController {
 
     private Logger log = LoggerFactory.getLogger(ImageController.class);
 
-    @Autowired
     //ResourceLoader is to load and  store image data in Resource class
-    private ResourceLoader resourceLoader;
+    @Autowired private ResourceLoader resourceLoader;
     //CloudVisionTemplate will read byteString from Resource and sent to google cloud for labeling process
     @Autowired private CloudVisionTemplate cloudVisionTemplate;
+
     @Autowired private ApplicationConfiguration config;
 
 
@@ -67,16 +60,10 @@ public class ImageController {
             for (String key: service){
                 if (key.equals("1") ) {
                     log.info("Parameters contains: {}, the result contains google service",key);
-                    resultList.add(googleImageLabeling(imageService));
+                    resultList.add(imageService.googleImageLabeling(resourceLoader,cloudVisionTemplate));
                 }else if(key.equals("2") ){
                     log.info("Parameters contains: {}, the result contains aws service",key);
                     resultList.add(imageService.amazonDetectLabels(config));
-                }else if (key.equals("3") ){
-                    log.info("Parameter is {}, this is to show the image is download from DLC",key);
-                    imageService.callImageService(response);
-                }else if (key.equals("4") ){
-                    log.info("Parameter is {}, this is to save the image in DLC in local file",key);
-                    imageService.displayImage();
                 }
             }
         }catch (Exception e){
@@ -88,107 +75,7 @@ public class ImageController {
         JSONArray jsonArray = jsonObject2.getJSONArray("service");
         jsonResult.put("pid",pid);
         jsonResult.put("service",jsonArray);
-
         log.info(jsonResult.toString());
-
         return jsonResult.toString();
     }
-
-    //google cloud vision method to detect label in the image
-    public JSONObject googleImageLabeling(ImageService imageService){
-        JSONObject jsonObject = new JSONObject();
-        Resource imageResource = this.resourceLoader.getResource(imageService.getUrl());
-        AnnotateImageResponse response = this.cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
-        Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
-                EntityAnnotation::getDescription,
-                EntityAnnotation::getScore,
-                (u , v)->{
-                    throw new IllegalStateException(String.format("Duplicate key %s, u"));
-                },
-                LinkedHashMap::new));
-        // so far, I prints out the label and relavence on the console, need to update to return a json file
-        //System.out.println("Results from google cloud vision:");
-        ArrayList list = new ArrayList();
-        for (String label: imageLabels.keySet()){
-            float relevance = imageLabels.get(label);
-            JSONObject jsonObject1 = new JSONObject();
-            jsonObject1.put("label",label);
-            jsonObject1.put("relevance",relevance);
-            list.add(jsonObject1);
-        }
-        JSONObject jsonObject2 = new JSONObject();
-        jsonObject2.put("label",list);
-        JSONArray jsonArray = jsonObject2.getJSONArray("label");
-        jsonObject.put("id","1");
-        jsonObject.put("labels",jsonArray);
-        //System.out.println(jsonObject.toString());
-
-        return jsonObject;
-    }
-
-    public void amonzonImageLabeling(ImageService imageService){
-        //need to be implemented
-    }
-
-
-//    public void detectLabels(ImageService imageService, PrintStream out) throws Exception, IOException {
-//        List<AnnotateImageRequest> requests = new ArrayList<>();
-//
-//        InputStream in = imageService.get();
-//
-//        ByteString imgBytes = ByteString.readFrom(in);
-//
-//        Image img = Image.newBuilder().setContent(imgBytes).build();
-//        Feature feat = Feature.newBuilder().setType(Feature.Type.LABEL_DETECTION).build();
-//        AnnotateImageRequest request =
-//                AnnotateImageRequest.newBuilder().addFeatures(feat).setImage(img).build();
-//        requests.add(request);
-//
-//        try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
-//            BatchAnnotateImagesResponse response = client.batchAnnotateImages(requests);
-//            List<AnnotateImageResponse> responses = response.getResponsesList();
-//
-//            for (AnnotateImageResponse res : responses) {
-//                if (res.hasError()) {
-//                    out.printf("Error: %s\n", res.getError().getMessage());
-//                    return;
-//                }
-//
-//                // For full list of available annotations, see http://g.co/cloud/vision/docs
-//                for (EntityAnnotation annotation : res.getLabelAnnotationsList()) {
-//                    annotation.getAllFields().forEach((k, v) -> out.printf("%s : %s\n", k, v.toString()));
-//                }
-//            }
-//        }
-//    }
-
-
-
-//    public Map<String, String> getImage(@PathVariable("pid") String pid, @RequestParam String service){
-////        String urlString = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
-////        try {
-////            URL url = new URL(urlString);
-////            try {
-////                BufferedImage bufferedImage = ImageIO.read(url);
-////                System.out.println(bufferedImage);
-////            } catch (IOException e) {
-////                e.printStackTrace();
-////            }
-////        } catch (MalformedURLException e) {
-////            e.printStackTrace();
-////        }
-//        //String pid = null;
-//        //Use http client to retrive image data using pid
-//        //https://dl-devel.nla.gov.au/dl-repo/ImageController/nla.obj-398310603
-//        //process data
-//
-//        Map<String, String> result = new HashMap<String, String>();
-//        result.put("pid", pid);
-//        result.put("service", service);
-//        return result;
-//    }
-
-
-
-
 }
