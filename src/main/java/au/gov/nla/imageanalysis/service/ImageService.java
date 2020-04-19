@@ -114,7 +114,7 @@ public class ImageService {
             labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",relevance));
         }
 
-        resultLabelsFromGoogle.put("id","2").put("labels",new JSONArray(labelsAsJsonObject));
+        resultLabelsFromGoogle.put("id","1").put("labels",new JSONArray(labelsAsJsonObject));
 
         return resultLabelsFromGoogle;
     }
