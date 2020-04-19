@@ -13,10 +13,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
-
-
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.*;
@@ -26,27 +22,40 @@ import java.util.*;
 public class ImageController {
 
     private final Logger log = LoggerFactory.getLogger(ImageController.class);
-
-    //ResourceLoader is to load and  store image data in Resource class
+    @Autowired private ApplicationConfiguration config;
     @Autowired private ResourceLoader resourceLoader;
-    //CloudVisionTemplate will read byteString from Resource and sent to google cloud for labeling process
+
+    /**
+     * The CloudVisionTemplate is a wrapper around the Vision API Client Libraries and lets you process images easily
+     * through the Vision API. For more information about the CloudVisionTemplate features, see:
+     * https://cloud.spring.io/spring-cloud-static/spring-cloud-gcp/1.2.0.RELEASE/reference/html/#google-cloud-vision
+     */
     @Autowired private CloudVisionTemplate cloudVisionTemplate;
 
-    @Autowired private ApplicationConfiguration config;
 
-
-
-    // mapping is to give get request, it passes picture id and other parameters in map
+    /**
+     * The method will obtain image by from url: "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid. It then calls
+     * the selected cloud image labeling services.
+     *
+     * @param pid  The picture ID. For example: nla.obj-159043847
+     * @param service  a list of String number, each number points to a cloud service. eg, 1 = google labeling service, 2 = AWS labeling service
+     * @param response HttpServletResponse to show the response status. Have not implemented the error response handling
+     * @return finalResultAsJsonObject.toString(): printed version of the JSON object that contains the results from the selected cloud
+     *         labeling services. Format {"pid":"nla.obj-159043847", "service":[JSON object from calling googleImageLabeling,
+     *         JSON object from calling AWSImageLabeling,...]}. Please refer to project plan for details.
+     * @throws IOException
+     */
     @RequestMapping(value = "/label/{pid:nla\\.obj-.+}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public String getImage(@PathVariable("pid") String pid, @RequestParam List<String> service,
-                         HttpServletResponse response, HttpServletRequest request) throws IOException {
-        Map<String, String> result = new HashMap<String, String>();
+                         HttpServletResponse response) throws IOException {
 
-        //Dynamic url is generated here and passed onto the DLC for image extraction
-        // The access to the library computer is not available, so it passes a online url for now.
+        /**
+         * The access to the library computer is not available, so it uses urlReplacement, a online url for trove image access,
+         * to create imageService. This is only for testing the functionality of the cloud APIs. Once in the office environment,
+         * urlCorrect, should be used to create imageService.
+         */
         String urlCorrect = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
-        //String urlReplacement = "https://assets.readitforward.com/wp-content/uploads/2019/02/RIF-Historical-Fiction-1200x900-830x625.jpg";
         String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-159043847-t&md5=O6N-K5SwjBH2ApTGObbxvA&expires=1587996000";
         log.info("Correct Url: {}",urlCorrect);
         log.info("Replacement URL: {}", urlReplacement);
@@ -54,8 +63,25 @@ public class ImageController {
         ImageService imageService = new ImageService(urlReplacement);
 
         JSONObject finalResultAsJsonObject = new JSONObject();
-        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
+        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = callImageServices(service,imageService);
+        finalResultAsJsonObject.put("pid",pid).put("service",new JSONArray(ArrayOfLabelsFromSelectedServices));
 
+        log.info(finalResultAsJsonObject.toString());
+
+        return finalResultAsJsonObject.toString();
+    }
+
+    /**
+     * This method processes an image with selected services and stores the returned JSON objects into a JSON array
+     *
+     * @param service  a list of String number, each number points to a cloud service. eg, 1 = google labeling service, 2 = AWS labeling service
+     * @param imageService  a class contains the image url and available services for processing image
+     * @return a JSON array containing results from selected cloud labeling services in the required format.
+     * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
+     */
+
+    private ArrayList<JSONObject> callImageServices(List<String> service, ImageService imageService){
+        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
         try{
             for (String key: service){
                 if (key.equals("1") ) {
@@ -63,17 +89,14 @@ public class ImageController {
                     ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(resourceLoader,cloudVisionTemplate));
                 }else if(key.equals("2") ){
                     log.info("Parameters contains: {}, the result contains aws service",key);
-                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSDetectLabels(config));
+                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(config));
                 }
             }
         }catch (Exception e){
             e.printStackTrace();
         }
 
-        finalResultAsJsonObject.put("pid",pid).put("service",new JSONArray(ArrayOfLabelsFromSelectedServices));
+        return ArrayOfLabelsFromSelectedServices;
 
-        log.info(finalResultAsJsonObject.toString());
-
-        return finalResultAsJsonObject.toString();
     }
 }
