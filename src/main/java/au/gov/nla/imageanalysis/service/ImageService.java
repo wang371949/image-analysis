@@ -12,20 +12,15 @@ import com.amazonaws.services.rekognition.model.*;
 import com.google.cloud.vision.v1.AnnotateImageResponse;
 import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
-import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
-import javax.imageio.ImageIO;
-import javax.servlet.http.HttpServletResponse;
-import java.awt.image.BufferedImage;
-import java.io.File;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -35,7 +30,7 @@ import java.util.List;
 
 
 public class ImageService {
-    private String url;
+    private final String url;
     public ImageService(String url){
         this.url = url;
     }
@@ -45,8 +40,8 @@ public class ImageService {
         return HttpHelper.getAsStream(url);
     }
 
-    public JSONObject amazonDetectLabels(ApplicationConfiguration config) throws IOException {
-        JSONObject jsonObject =new JSONObject();
+    public JSONObject AWSDetectLabels(ApplicationConfiguration config){
+        JSONObject resultLabelsFromAWS =new JSONObject();
         ByteBuffer imageBytes;
         BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
         AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
@@ -61,68 +56,46 @@ public class ImageService {
             try {
                 DetectLabelsResult result = client.detectLabels(request);
                 List<Label> labels = result.getLabels();
+                ArrayList<JSONObject> labelsAsJsonObject = new ArrayList<>();
 
-                //System.out.println("Results from amazon Rekognition:");
-                ArrayList list = new ArrayList();
                 for (Label l: labels){
                     String label = l.getName();
                     float relevance = l.getConfidence();
-                    JSONObject jsonObject1 = new JSONObject();
-                    jsonObject1.put("label",label);
-                    jsonObject1.put("relevance",relevance);
-                    list.add(jsonObject1);
+                    labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",relevance));
                 }
-                JSONObject jsonObject2 = new JSONObject();
-                jsonObject2.put("label",list);
-                JSONArray jsonArray = jsonObject2.getJSONArray("label");
-                jsonObject.put("id","2");
-                jsonObject.put("labels",jsonArray);
+
+                resultLabelsFromAWS.put("id","2").put("labels",new JSONArray(labelsAsJsonObject));
+
             } catch (AmazonRekognitionException e) {
                 e.printStackTrace();
             }
         }catch (Exception e){
             e.printStackTrace();
         }
-        return jsonObject;
+        return resultLabelsFromAWS;
     }
 
     public JSONObject googleImageLabeling(ResourceLoader resourceLoader, CloudVisionTemplate cloudVisionTemplate){
-        JSONObject jsonObject = new JSONObject();
+        JSONObject resultLabelsFromGoogle = new JSONObject();
         Resource imageResource = resourceLoader.getResource(url);
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
         Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
                 EntityAnnotation::getDescription,
                 EntityAnnotation::getScore,
                 (u , v)->{
-                    throw new IllegalStateException(String.format("Duplicate key %s, u"));
+                    throw new IllegalStateException("Duplicate key %s, u");
                 },
                 LinkedHashMap::new));
 
-        ArrayList list = new ArrayList();
+        ArrayList<JSONObject> labelsAsJsonObject = new ArrayList<>();
+
         for (String label: imageLabels.keySet()){
             float relevance = imageLabels.get(label);
-            JSONObject jsonObject1 = new JSONObject();
-            jsonObject1.put("label",label);
-            jsonObject1.put("relevance",relevance);
-            list.add(jsonObject1);
+            labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",relevance));
         }
-        JSONObject jsonObject2 = new JSONObject();
-        jsonObject2.put("label",list);
-        JSONArray jsonArray = jsonObject2.getJSONArray("label");
-        jsonObject.put("id","1");
-        jsonObject.put("labels",jsonArray);
-        //System.out.println(jsonObject.toString());
 
-        return jsonObject;
+        resultLabelsFromGoogle.put("id","2").put("labels",new JSONArray(labelsAsJsonObject));
+
+        return resultLabelsFromGoogle;
     }
-
-    public String getUrl() {
-        return url;
-    }
-
-    /**
-     * Determines the query using the requestParams and this.url and this.workPid
-     */
-
-
 }

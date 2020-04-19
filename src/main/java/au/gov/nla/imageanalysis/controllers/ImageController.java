@@ -25,7 +25,7 @@ import java.util.*;
 @Controller
 public class ImageController {
 
-    private Logger log = LoggerFactory.getLogger(ImageController.class);
+    private final Logger log = LoggerFactory.getLogger(ImageController.class);
 
     //ResourceLoader is to load and  store image data in Resource class
     @Autowired private ResourceLoader resourceLoader;
@@ -53,29 +53,27 @@ public class ImageController {
         //ImageService imageService = new ImageService(urlCorrect);
         ImageService imageService = new ImageService(urlReplacement);
 
-        JSONObject jsonResult = new JSONObject();
-        ArrayList resultList = new ArrayList();
+        JSONObject finalResultAsJsonObject = new JSONObject();
+        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
 
         try{
             for (String key: service){
                 if (key.equals("1") ) {
                     log.info("Parameters contains: {}, the result contains google service",key);
-                    resultList.add(imageService.googleImageLabeling(resourceLoader,cloudVisionTemplate));
+                    ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(resourceLoader,cloudVisionTemplate));
                 }else if(key.equals("2") ){
                     log.info("Parameters contains: {}, the result contains aws service",key);
-                    resultList.add(imageService.amazonDetectLabels(config));
+                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSDetectLabels(config));
                 }
             }
         }catch (Exception e){
             e.printStackTrace();
         }
 
-        JSONObject jsonObject2 = new JSONObject();
-        jsonObject2.put("service",resultList);
-        JSONArray jsonArray = jsonObject2.getJSONArray("service");
-        jsonResult.put("pid",pid);
-        jsonResult.put("service",jsonArray);
-        log.info(jsonResult.toString());
-        return jsonResult.toString();
+        finalResultAsJsonObject.put("pid",pid).put("service",new JSONArray(ArrayOfLabelsFromSelectedServices));
+
+        log.info(finalResultAsJsonObject.toString());
+
+        return finalResultAsJsonObject.toString();
     }
 }
