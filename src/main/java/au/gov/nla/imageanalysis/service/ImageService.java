@@ -14,6 +14,8 @@ import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -29,6 +31,7 @@ import java.util.List;
 
 public class ImageService {
     private final String url;
+    private final Logger log = LoggerFactory.getLogger(ImageService.class);
 
     /**
      *Constructor
@@ -50,7 +53,6 @@ public class ImageService {
      *         eg, {"id","2", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject AWSImageLabeling(ApplicationConfiguration config){
-        JSONObject resultLabelsFromAWS =new JSONObject();
         ByteBuffer imageBytes;
         BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
         AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
@@ -65,23 +67,19 @@ public class ImageService {
             try {
                 DetectLabelsResult result = client.detectLabels(request);
                 List<Label> labels = result.getLabels();
-                ArrayList<JSONObject> labelsAsJsonObject = new ArrayList<>();
+                List<JSONObject> labelsAsJsonObject = new ArrayList<>();
 
                 for (Label l: labels){
-                    String label = l.getName();
-                    float relevance = l.getConfidence();
-                    labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",relevance));
+                    labelsAsJsonObject.add(new JSONObject().put("label",l.getName()).put("relevance",l.getConfidence()));
                 }
-
-                resultLabelsFromAWS.put("id","2").put("labels",new JSONArray(labelsAsJsonObject));
-
+                return new JSONObject().put("id","2").put("labels",new JSONArray(labelsAsJsonObject));
             } catch (AmazonRekognitionException e) {
-                e.printStackTrace();
+                log.error("AmazonRekognitionException: "+e.getMessage(),e);
             }
-        }catch (Exception e){
-            e.printStackTrace();
+        }catch (IOException e){
+            log.error("IOException: "+e.getMessage(),e);
         }
-        return resultLabelsFromAWS;
+        return new JSONObject();
     }
 
     /**
@@ -96,7 +94,6 @@ public class ImageService {
      *         eg, {"id","1", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject googleImageLabeling(ResourceLoader resourceLoader, CloudVisionTemplate cloudVisionTemplate){
-        JSONObject resultLabelsFromGoogle = new JSONObject();
         Resource imageResource = resourceLoader.getResource(url);
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
         Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
@@ -106,16 +103,10 @@ public class ImageService {
                     throw new IllegalStateException("Duplicate key %s, u");
                 },
                 LinkedHashMap::new));
-
-        ArrayList<JSONObject> labelsAsJsonObject = new ArrayList<>();
-
+        List<JSONObject> labelsAsJsonObject = new ArrayList<>();
         for (String label: imageLabels.keySet()){
-            float relevance = imageLabels.get(label);
-            labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",relevance));
+            labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",imageLabels.get(label)));
         }
-
-        resultLabelsFromGoogle.put("id","1").put("labels",new JSONArray(labelsAsJsonObject));
-
-        return resultLabelsFromGoogle;
+        return new JSONObject().put("id","1").put("labels",new JSONArray(labelsAsJsonObject));
     }
 }

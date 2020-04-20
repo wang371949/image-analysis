@@ -3,6 +3,7 @@ package au.gov.nla.imageanalysis.controllers;
 
 import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
 import au.gov.nla.imageanalysis.service.ImageService;
+import au.gov.nla.imageanalysis.enums.ServiceType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -43,7 +44,6 @@ public class ImageController {
      * @return finalResultAsJsonObject.toString(): printed version of the JSON object that contains the results from the selected cloud
      *         labeling services. Format {"pid":"nla.obj-159043847", "service":[JSON object from calling googleImageLabeling,
      *         JSON object from calling AWSImageLabeling,...]}. Please refer to project plan for details.
-     * @throws IOException
      */
     @RequestMapping(value = "/label/{pid:nla\\.obj-.+}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -61,14 +61,9 @@ public class ImageController {
         log.info("Replacement URL: {}", urlReplacement);
         //ImageService imageService = new ImageService(urlCorrect);
         ImageService imageService = new ImageService(urlReplacement);
-
-        JSONObject finalResultAsJsonObject = new JSONObject();
-        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = callImageServices(service,imageService);
-        finalResultAsJsonObject.put("pid",pid).put("service",new JSONArray(ArrayOfLabelsFromSelectedServices));
-
-        log.info(finalResultAsJsonObject.toString());
-
-        return finalResultAsJsonObject.toString();
+        return new JSONObject().put("pid",pid)
+                .put("service",new JSONArray(callImageServices(service,imageService)))
+                .toString();
     }
 
     /**
@@ -80,23 +75,17 @@ public class ImageController {
      * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
      */
 
-    private ArrayList<JSONObject> callImageServices(List<String> service, ImageService imageService){
-        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
-        try{
-            for (String key: service){
-                if (key.equals("1") ) {
-                    log.info("Parameters contains: {}, the result contains google service",key);
-                    ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(resourceLoader,cloudVisionTemplate));
-                }else if(key.equals("2") ){
-                    log.info("Parameters contains: {}, the result contains aws service",key);
-                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(config));
-                }
+    private List<JSONObject> callImageServices(List<String> service, ImageService imageService) {
+        List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
+        for (String key : service) {
+            if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.code())) {
+                log.info("Parameters contains: {}, the result contains google service", key);
+                ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(resourceLoader, cloudVisionTemplate));
+            } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.code())) {
+                log.info("Parameters contains: {}, the result contains aws service", key);
+                ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(config));
             }
-        }catch (Exception e){
-            e.printStackTrace();
         }
-
         return ArrayOfLabelsFromSelectedServices;
-
     }
 }
