@@ -1,20 +1,16 @@
 package au.gov.nla.imageanalysis.controllers;
 
 
-import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
 import au.gov.nla.imageanalysis.service.ImageService;
+import au.gov.nla.imageanalysis.enums.ServiceType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import javax.servlet.http.HttpServletResponse;
-import java.io.*;
 import java.util.*;
 
 
@@ -49,41 +45,33 @@ public class ImageController {
         String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-159043847-t&md5=O6N-K5SwjBH2ApTGObbxvA&expires=1587996000";
         log.info("Correct Url: {}",urlCorrect);
         log.info("Replacement URL: {}", urlReplacement);
+        //ImageService imageService = new ImageService(urlCorrect);
 
-        JSONObject finalResultAsJsonObject = new JSONObject();
-        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = callImageServices(service,urlReplacement);
-        finalResultAsJsonObject.put("pid",pid).put("service",new JSONArray(ArrayOfLabelsFromSelectedServices));
-
-        log.info(finalResultAsJsonObject.toString());
-
-        return finalResultAsJsonObject.toString();
+        return new JSONObject().put("pid",pid)
+                .put("service",new JSONArray(callImageServices(service, urlReplacement)))
+                .toString();
     }
 
     /**
      * This method processes an image with selected services and stores the returned JSON objects into a JSON array
      *
      * @param service  a list of String number, each number points to a cloud service. eg, 1 = google labeling service, 2 = AWS labeling service
-     * @param url   the url to be processed by the image recognition services
+     * @param url  the url to the processing image
      * @return a JSON array containing results from selected cloud labeling services in the required format.
      * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
      */
 
-    private ArrayList<JSONObject> callImageServices(List<String> service, String url){
-        ArrayList<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
-        try{
-            for (String key: service){
-                if (key.equals("1") ) {
-                    log.info("Parameters contains: {}, the result contains google service",key);
-                    ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(url));
-                }else if(key.equals("2") ){
-                    log.info("Parameters contains: {}, the result contains aws service",key);
-                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(url));
-                }
+    private List<JSONObject> callImageServices(List<String> service, String url) {
+        List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
+        for (String key : service) {
+            if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.code())) {
+                log.info("Parameters contains: {}, the result contains google service", key);
+                ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(url));
+            } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.code())) {
+                log.info("Parameters contains: {}, the result contains aws service", key);
+                ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(url));
             }
-        }catch (Exception e){
-            e.printStackTrace();
         }
-
         return ArrayOfLabelsFromSelectedServices;
     }
 }
