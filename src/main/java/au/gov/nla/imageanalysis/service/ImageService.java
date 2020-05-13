@@ -62,25 +62,36 @@ public class ImageService {
     @Autowired
     private CloudVisionTemplate cloudVisionTemplate;
 
-    /**
-     *Constructor
-     */
+    /** Constructor */
     public ImageService(){ super(); }
+
+    /*
+     * The access to the library computer is not available, so it uses urlReplacement, a online url for trove image access,
+     * to create imageService. This is only for testing the functionality of the cloud APIs. Once in the office environment,
+     * urlCorrect, should be used to create imageService.
+     */
+    private String getUrl(String pid){
+        String urlCorrect = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
+        String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-142006121-t&md5=IPTuIUjvIhDM3l-IPxq7SQ&expires=1590415200";
+        log.info("Correct Url: {}",urlCorrect);
+        log.info("Replacement URL: {}", urlReplacement);
+        return urlReplacement;
+    }
 
     /**
      * Capture the image from given url and stored as an inputStream
      * @return an inputStream of an image from a given url
      * @throws IOException if the url contents cannot be retrieved
      */
-    public InputStream get(String url) throws IOException{ return HttpHelper.getAsStream(url);}
+    public InputStream getInputStreamFromUrl(String url) throws IOException{ return HttpHelper.getAsStream(url);}
 
     /**
      * call Amazon Web Service (AWS) image Labeling API
-     * @param url the url to the image that's being processed by Google Cloud Vision.
+     * @param pid the id of the image that's being processed by Google Cloud Vision.
      * @return a JSONObject containing results from AWS in the required format
      *         eg, {"id","AL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject AWSImageLabeling(String url){
+    public JSONObject AWSImageLabeling(String pid){
         List<ImageLabel> imageLabels = new ArrayList<>();
         ByteBuffer imageBytes;
         BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAWSAccessKey(), config.getAWSSecretKey());
@@ -89,34 +100,34 @@ public class ImageService {
                 .withCredentials(new AWSStaticCredentialsProvider(credentials))
                 .build();
         try{
-            InputStream in = get(url);
+            InputStream in = getInputStreamFromUrl(getUrl(pid));
             imageBytes = ByteBuffer.wrap(com.amazonaws.util.IOUtils.toByteArray(in));
             DetectLabelsRequest request = new DetectLabelsRequest()
                     .withImage(new Image().withBytes(imageBytes)).withMaxLabels(10).withMinConfidence(77F);
             try {
                 DetectLabelsResult result = client.detectLabels(request);
                 for (Label label: result.getLabels()){
-                    imageLabels.add(new ImageLabel(label.getName(),label.getConfidence()));
+                    imageLabels.add(new ImageLabel(label.getName(),label.getConfidence()/100.0f));
                 }
-                return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE);
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE, pid);
             } catch (AmazonRekognitionException e) {
-                log.error("AmazonRekognitionException: "+e.getMessage(),e);
+                log.error("AWSRekognitionException: "+e.getMessage(),e);
             }
         }catch (IOException e){
             log.error("IOException: "+e.getMessage(),e);
         }
-        return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE);
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE, pid);
     }
 
     /**
      * Call google cloud vision image Labeling API
-     * @param url the url to the image that's being processed by Google Cloud Vision.
+     * @param pid the id of the image that's being processed by Google Cloud Vision.
      * @return a JSONObject containing results from google cloud vision in the required format
      *         eg, {"id","GL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject googleImageLabeling(String url){
+    public JSONObject googleImageLabeling(String pid){
         List<ImageLabel> imageLabels = new ArrayList<>();
-        Resource imageResource = resourceLoader.getResource(url);
+        Resource imageResource = resourceLoader.getResource(getUrl(pid));
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
         Map<String, Float> results = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
                 EntityAnnotation::getDescription,
@@ -128,22 +139,22 @@ public class ImageService {
         for (String label: results.keySet()){
             imageLabels.add(new ImageLabel(label,results.get(label)));
         }
-        return ImageLabel.covertToJSON(imageLabels, ServiceType.GOOGLE_LABELING_SERVICE);
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.GOOGLE_LABELING_SERVICE, pid);
     }
 
     /**
      * Call microsoft azure computer vision image Labeling API
-     * @param url  the url to the image that's being processed by Microsoft azure.
+     * @param pid the id of the image that's being processed by Microsoft azure.
      * @return a JSONObject containing results from microsoft azure  in the required format
      *        eg, {"id","ML", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject azureImageLabeling(String url){
+    public JSONObject azureImageLabeling(String pid){
         List<ImageLabel> imageLabels = new ArrayList<>();
         ComputerVisionClient computerVisionClient = ComputerVisionManager
                 .authenticate(config.getAzureAccessKey())
                 .withEndpoint(config.getAzureEndPoint());
         try {
-            InputStream in = get(url);
+            InputStream in = getInputStreamFromUrl(getUrl(pid));
             byte[] imgBytes = IOUtils.toByteArray(in);
             TagResult results = computerVisionClient.computerVision().tagImageInStream()
                     .withImage(imgBytes)
@@ -153,25 +164,25 @@ public class ImageService {
                 for (ImageTag label : results.tags()) {
                     imageLabels.add(new ImageLabel(label.name(),(float)label.confidence()));
                 }
-                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE);
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE, pid);
             }
         } catch (Exception e) {log.error("IOException: "+e.getMessage(),e);}
-        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE);
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE, pid);
     }
 
     /**
      * Call microsoft azure computer vision image description API
-     * @param url  the url to the image that's being processed by Microsoft azure.
+     * @param pid the id of the image that's being processed by Microsoft azure.
      * @return a JSONObject containing results from microsoft azure  in the required format
      *        eg, {"id","MD", "descriptions":[{"description":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject azureImageDescription(String url){
+    public JSONObject azureImageDescription(String pid){
         List<ImageLabel> imageLabels = new ArrayList<>();
         ComputerVisionClient computerVisionClient = ComputerVisionManager
                 .authenticate(config.getAzureAccessKey())
                 .withEndpoint(config.getAzureEndPoint());
         try {
-            InputStream in = get(url);
+            InputStream in = getInputStreamFromUrl(getUrl(pid));
             byte[] imgBytes = IOUtils.toByteArray(in);
             ImageDescription description = computerVisionClient.computerVision().describeImageInStream()
                     .withImage(imgBytes)
@@ -181,35 +192,24 @@ public class ImageService {
                 for (ImageCaption caption : description.captions()) {
                     imageLabels.add(new ImageLabel(caption.text(),(float)caption.confidence()));
                 }
-                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE);
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE, pid);
             }
         } catch (Exception e) {log.error("IOException: "+e.getMessage(),e);}
-        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE);
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE, pid);
     }
 
     /**
      * save the image of given url into local file for visualization
-     * @param url the url to the image that's being saved.
+     * @param pid the id of the image that's being saved.
      * @param path the location of the saved file
      */
-    public void saveImage(String url, String path){
+    public void saveImage(String pid, String path){
         BufferedImage image = null;
         File outputfile = new File(path);
         try{
-            InputStream in = get(url);
+            InputStream in = getInputStreamFromUrl(getUrl(pid));
             image = ImageIO.read(in);
             ImageIO.write(image,"jpg",outputfile);
         } catch (IOException e){log.error("IOException: "+e.getMessage(),e);}
     }
-
-
-//    public Float evaluate(List<String> output, List<String> target){
-//
-//    }
-
-
-
-
-
-
 }

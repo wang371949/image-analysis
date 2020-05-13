@@ -35,52 +35,39 @@ public class ImageController {
     @RequestMapping(value = "/label/{pid:nla\\.obj-.+}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public String getImage(@PathVariable("pid") String pid, @RequestParam List<String> service) {
-
-        /*
-         * The access to the library computer is not available, so it uses urlReplacement, a online url for trove image access,
-         * to create imageService. This is only for testing the functionality of the cloud APIs. Once in the office environment,
-         * urlCorrect, should be used to create imageService.
-         */
-        String urlCorrect = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
-        String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-142006121-t&md5=IPTuIUjvIhDM3l-IPxq7SQ&expires=1590415200";
-        log.info("Correct Url: {}",urlCorrect);
-        log.info("Replacement URL: {}", urlReplacement);
-        //ImageService imageService = new ImageService(urlCorrect);
-
         return new JSONObject().put("pid",pid)
-                .put("service",new JSONArray(callImageServices(service, urlReplacement)))
+                .put("service",new JSONArray(callImageServices(service, pid)))
                 .toString();
     }
 
     /**
      * This method processes an image with selected services and stores the returned JSON objects into a JSON array
      *
-     * @param service  a list of String number, each number points to a cloud service. eg, 1 = google labeling service, 2 = AWS labeling service
-     * @param url  the url to the processing image
+     * @param service  a list of String number, each number points to a cloud service.
+     *                 eg, GL = google labeling service, AL = AWS labeling service ML = Microsoft azure labeling service
+     *                     MD = Microsoft azure description services
+     * @param pid the id of the image that's being processed by the cloud services
      * @return a JSON array containing results from selected cloud labeling services in the required format.
      * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
      */
-
-    private List<JSONObject> callImageServices(List<String> service, String url) {
-        imageService.saveImage(url, "src/main/resources/static/Images/currentImage.jpg");
+    private List<JSONObject> callImageServices(List<String> service, String pid) {
+        imageService.saveImage(pid, "src/main/resources/static/Images/currentImage.jpg");
         List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
         for (String key : service) {
             if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.getCode())) {
-                log.info("Parameters contains: {}, the result contains {}", key,ServiceType.GOOGLE_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(url));
+                log.info("Parameters contains: {}, the services contains {}", key,ServiceType.GOOGLE_LABELING_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(pid));
             } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.getCode())) {
-                log.info("Parameters contains: {}, the result contains {}", key,ServiceType.AWS_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(url));
+                log.info("Parameters contains: {}, the services contains {}", key,ServiceType.AWS_LABELING_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(pid));
             } else if (key.equals(ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getCode())){
-                log.info("Parameters contains: {}, the result contains {}", key, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageLabeling(url));
+                log.info("Parameters contains: {}, the services contains {}", key, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageLabeling(pid));
             } else if (key.equals(ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getCode())){
-                log.info("Parameters contains: {}, the result contains {}", key, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageDescription(url));
+                log.info("Parameters contains: {}, the services contains {}", key, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageDescription(pid));
             }
         }
         return ArrayOfLabelsFromSelectedServices;
     }
-
-
 }
