@@ -16,9 +16,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Component;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -28,31 +31,48 @@ import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.List;
 
-
+@Component
 public class ImageService {
-    private final String url;
+
     private final Logger log = LoggerFactory.getLogger(ImageService.class);
+
+    @Autowired
+    private ApplicationConfiguration config;
+
+    /**
+     * Strategy interface for loading resources. Its getResource method uses an image url to return
+     * a Resource instance containing the image ByteString.
+     */
+    @Autowired
+    private ResourceLoader resourceLoader;
+
+    /**
+     * The CloudVisionTemplate is a wrapper around the Vision API Client Libraries and lets you process images easily
+     * through the Vision API. For more information about the CloudVisionTemplate features, see:
+     * https://cloud.spring.io/spring-cloud-static/spring-cloud-gcp/1.2.0.RELEASE/reference/html/#google-cloud-vision
+     */
+    @Autowired
+    private CloudVisionTemplate cloudVisionTemplate;
 
     /**
      *Constructor
      */
-    public ImageService(String url){this.url = url;}
+    public ImageService(){ super(); }
 
     /**
      * Capture the image from given url and stored as an inputStream
      * @return an inputStream of an image from a given url
-     * @throws IOException
+     * @throws IOException if the url contents cannot be retrieved
      */
-    public InputStream get() throws IOException{ return HttpHelper.getAsStream(url);}
+    public InputStream get(String url) throws IOException{ return HttpHelper.getAsStream(url);}
 
     /**
      * call Amazon Web Service (AWS) image Labeling API
-     *
-     * @param config configuration contains AWS access information
+     * @param url the url to the image that's being processed by Google Cloud Vision.
      * @return a JSONObject containing results from AWS in the required format
      *         eg, {"id","2", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject AWSImageLabeling(ApplicationConfiguration config){
+    public JSONObject AWSImageLabeling(String url){
         ByteBuffer imageBytes;
         BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
         AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
@@ -60,7 +80,7 @@ public class ImageService {
                 .withCredentials(new AWSStaticCredentialsProvider(credentials))
                 .build();
         try{
-            InputStream in = get();
+            InputStream in = get(url);
             imageBytes = ByteBuffer.wrap(com.amazonaws.util.IOUtils.toByteArray(in));
             DetectLabelsRequest request = new DetectLabelsRequest()
                     .withImage(new Image().withBytes(imageBytes)).withMaxLabels(10).withMinConfidence(77F);
@@ -83,17 +103,12 @@ public class ImageService {
     }
 
     /**
-     * call google cloud vision image Labeling API
-     *
-     * @param resourceLoader  Strategy interface for loading resources. Its getResource method uses an image url to return
-     *                        a Resource instance containing the image ByteString.
-     * @param cloudVisionTemplate a wrapper around the Vision API Client Libraries and lets you process images easily
-     *                            through the Vision API. For more information about the CloudVisionTemplate features, see:
-     *                             https://cloud.spring.io/spring-cloud-static/spring-cloud-gcp/1.2.0.RELEASE/reference/html/#google-cloud-vision
+     * Call google cloud vision image Labeling API
+     * @param url the url to the image that's being processed by Google Cloud Vision.
      * @return a JSONObject containing results from google cloud vision in the required format
      *         eg, {"id","1", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject googleImageLabeling(ResourceLoader resourceLoader, CloudVisionTemplate cloudVisionTemplate){
+    public JSONObject googleImageLabeling(String url){
         Resource imageResource = resourceLoader.getResource(url);
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
         Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
