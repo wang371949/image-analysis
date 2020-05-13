@@ -2,7 +2,9 @@ package au.gov.nla.imageanalysis.service;
 
 
 import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
+import au.gov.nla.imageanalysis.enums.ServiceType;
 import au.gov.nla.imageanalysis.util.HttpHelper;
+import au.gov.nla.imageanalysis.util.ImageLabel;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Regions;
@@ -15,7 +17,6 @@ import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
 import com.microsoft.azure.cognitiveservices.vision.computervision.*;
 import com.microsoft.azure.cognitiveservices.vision.computervision.models.*;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,6 @@ import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +42,7 @@ import java.util.List;
 public class ImageService {
 
     private final Logger log = LoggerFactory.getLogger(ImageService.class);
+
 
     @Autowired
     private ApplicationConfiguration config;
@@ -80,6 +81,7 @@ public class ImageService {
      *         eg, {"id","AL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject AWSImageLabeling(String url){
+        List<ImageLabel> imageLabels = new ArrayList<>();
         ByteBuffer imageBytes;
         BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAWSAccessKey(), config.getAWSSecretKey());
         AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
@@ -93,20 +95,17 @@ public class ImageService {
                     .withImage(new Image().withBytes(imageBytes)).withMaxLabels(10).withMinConfidence(77F);
             try {
                 DetectLabelsResult result = client.detectLabels(request);
-                List<Label> labels = result.getLabels();
-                List<JSONObject> labelsAsJsonObject = new ArrayList<>();
-
-                for (Label l: labels){
-                    labelsAsJsonObject.add(new JSONObject().put("label",l.getName()).put("relevance",l.getConfidence()));
+                for (Label label: result.getLabels()){
+                    imageLabels.add(new ImageLabel(label.getName(),label.getConfidence()));
                 }
-                return new JSONObject().put("id","AL").put("labels",new JSONArray(labelsAsJsonObject));
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE);
             } catch (AmazonRekognitionException e) {
                 log.error("AmazonRekognitionException: "+e.getMessage(),e);
             }
         }catch (IOException e){
             log.error("IOException: "+e.getMessage(),e);
         }
-        return new JSONObject().put("id","AL").put("labels","No labels detected");
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.AWS_LABELING_SERVICE);
     }
 
     /**
@@ -116,20 +115,20 @@ public class ImageService {
      *         eg, {"id","GL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject googleImageLabeling(String url){
+        List<ImageLabel> imageLabels = new ArrayList<>();
         Resource imageResource = resourceLoader.getResource(url);
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
-        Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
+        Map<String, Float> results = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
                 EntityAnnotation::getDescription,
                 EntityAnnotation::getScore,
                 (u , v)->{
                     throw new IllegalStateException("Duplicate key %s, u");
                 },
                 LinkedHashMap::new));
-        List<JSONObject> labelsAsJsonObject = new ArrayList<>();
-        for (String label: imageLabels.keySet()){
-            labelsAsJsonObject.add(new JSONObject().put("label",label).put("relevance",imageLabels.get(label)));
+        for (String label: results.keySet()){
+            imageLabels.add(new ImageLabel(label,results.get(label)));
         }
-        return new JSONObject().put("id","GL").put("labels",new JSONArray(labelsAsJsonObject));
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.GOOGLE_LABELING_SERVICE);
     }
 
     /**
@@ -139,25 +138,25 @@ public class ImageService {
      *        eg, {"id","ML", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject azureImageLabeling(String url){
+        List<ImageLabel> imageLabels = new ArrayList<>();
         ComputerVisionClient computerVisionClient = ComputerVisionManager
                 .authenticate(config.getAzureAccessKey())
                 .withEndpoint(config.getAzureEndPoint());
         try {
             InputStream in = get(url);
             byte[] imgBytes = IOUtils.toByteArray(in);
-            TagResult labels = computerVisionClient.computerVision().tagImageInStream()
+            TagResult results = computerVisionClient.computerVision().tagImageInStream()
                     .withImage(imgBytes)
                     .withLanguage("en")
                     .execute();
-            if (labels.tags().size() != 0) {
-                List<JSONObject> labelsAsJsonObject = new ArrayList<>();
-                for (ImageTag label : labels.tags()) {
-                    labelsAsJsonObject.add(new JSONObject().put("label",label.name()).put("relevance",label.confidence()));
+            if (results.tags().size() != 0) {
+                for (ImageTag label : results.tags()) {
+                    imageLabels.add(new ImageLabel(label.name(),(float)label.confidence()));
                 }
-                return new JSONObject().put("id","ML").put("labels",new JSONArray(labelsAsJsonObject));
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE);
             }
         } catch (Exception e) {log.error("IOException: "+e.getMessage(),e);}
-        return new JSONObject().put("id","ML").put("labels","No labels detected");
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE);
     }
 
     /**
@@ -167,6 +166,7 @@ public class ImageService {
      *        eg, {"id","MD", "descriptions":[{"description":"Photograph", "relevance": 0.9539},...]}
      */
     public JSONObject azureImageDescription(String url){
+        List<ImageLabel> imageLabels = new ArrayList<>();
         ComputerVisionClient computerVisionClient = ComputerVisionManager
                 .authenticate(config.getAzureAccessKey())
                 .withEndpoint(config.getAzureEndPoint());
@@ -178,14 +178,13 @@ public class ImageService {
                     .withLanguage("en")
                     .execute();
             if (description.captions().size() != 0) {
-                List<JSONObject> labelsAsJsonObject = new ArrayList<>();
                 for (ImageCaption caption : description.captions()) {
-                    labelsAsJsonObject.add(new JSONObject().put("caption",caption.text()).put("relevance",caption.confidence()));
+                    imageLabels.add(new ImageLabel(caption.text(),(float)caption.confidence()));
                 }
-                return new JSONObject().put("id","MD").put("captionss",new JSONArray(labelsAsJsonObject));
+                return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE);
             }
         } catch (Exception e) {log.error("IOException: "+e.getMessage(),e);}
-        return new JSONObject().put("id","MD").put("captions","No captions detected");
+        return ImageLabel.covertToJSON(imageLabels, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE);
     }
 
     /**
@@ -202,4 +201,15 @@ public class ImageService {
             ImageIO.write(image,"jpg",outputfile);
         } catch (IOException e){log.error("IOException: "+e.getMessage(),e);}
     }
+
+
+//    public Float evaluate(List<String> output, List<String> target){
+//
+//    }
+
+
+
+
+
+
 }
