@@ -30,11 +30,11 @@ class ImageControllerTest {
     void getImage() throws JSONException {
         String pid = "nla.obj-123";
         String  url = "https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-142006121-t&md5=IPTuIUjvIhDM3l-IPxq7SQ&expires=1590415200";
-        String googleImageLabelingResponse = "{\"id\":\"1\", \"labels\":[{\"label\":\"Photograph\", \"relevance\": 0.9539}]}";
-        String expectedResult = "{\"service\":[{\"id\":\"1\",\"labels\":[{\"label\":\"Photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
+        String googleImageLabelingResponse = "{\"id\":\"GL\", \"labels\":[{\"label\":\"Photograph\", \"relevance\": 0.9539}]}";
+        String expectedResult = "{\"service\":[{\"id\":\"GL\",\"labels\":[{\"label\":\"Photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
 
         when(imageService.googleImageLabeling(anyString())).thenReturn(new JSONObject(googleImageLabelingResponse));
-        String actualResult = imageController.getImage(pid, Arrays.asList("1"));
+        String actualResult = imageController.getImage(pid, Arrays.asList("GL"));
 
         verify(imageService).googleImageLabeling(url);
         assertEquals(expectedResult, actualResult);

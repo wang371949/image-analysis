@@ -6,21 +6,34 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ApplicationConfiguration {
-
+    /**   AWS access keys    */
     @Value("${aws.access-key}")
-    private String accessKey;
-
+    private String awsAccessKey;
     @Value("${aws.secret-key}")
-    private String secretKey;
+    private String awsSecretKey;
+
+    /**   Microsoft azure access keys*/
+    @Value("${azure.access-key}")
+    private String azureAccessKey;
+    @Value("${azure.endpoint}")
+    private String azureEndPoint;
 
 
 
-    public String getAccessKey(){
-        return accessKey;
+    public String getAWSAccessKey(){
+        return awsAccessKey;
+    }
+    public String getAWSSecretKey(){
+        return awsSecretKey;
     }
 
-    public String getSecretKey(){
-        return secretKey;
+    public String getAzureAccessKey(){
+        return azureAccessKey;
     }
+    public String getAzureEndPoint(){
+        return azureEndPoint;
+    }
+
+
 
 }

@@ -62,16 +62,25 @@ public class ImageController {
      */
 
     private List<JSONObject> callImageServices(List<String> service, String url) {
+        imageService.saveImage(url, "src/main/resources/static/Images/currentImage.jpg");
         List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
         for (String key : service) {
-            if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.code())) {
-                log.info("Parameters contains: {}, the result contains google service", key);
+            if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.getCode())) {
+                log.info("Parameters contains: {}, the result contains {}", key,ServiceType.GOOGLE_LABELING_SERVICE.getDescription());
                 ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(url));
-            } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.code())) {
-                log.info("Parameters contains: {}, the result contains aws service", key);
+            } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.getCode())) {
+                log.info("Parameters contains: {}, the result contains {}", key,ServiceType.AWS_LABELING_SERVICE.getDescription());
                 ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(url));
+            } else if (key.equals(ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getCode())){
+                log.info("Parameters contains: {}, the result contains {}", key, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageLabeling(url));
+            } else if (key.equals(ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getCode())){
+                log.info("Parameters contains: {}, the result contains {}", key, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getDescription());
+                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageDescription(url));
             }
         }
         return ArrayOfLabelsFromSelectedServices;
     }
+
+
 }
