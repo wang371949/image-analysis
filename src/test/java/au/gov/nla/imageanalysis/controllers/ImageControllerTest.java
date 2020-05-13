@@ -29,7 +29,7 @@ class ImageControllerTest {
     @Test
     void getImage() throws JSONException {
         String pid = "nla.obj-123";
-        String  url = "https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-159043847-t&md5=O6N-K5SwjBH2ApTGObbxvA&expires=1587996000";
+        String  url = "https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-142006121-t&md5=IPTuIUjvIhDM3l-IPxq7SQ&expires=1590415200";
         String googleImageLabelingResponse = "{\"id\":\"1\", \"labels\":[{\"label\":\"Photograph\", \"relevance\": 0.9539}]}";
         String expectedResult = "{\"service\":[{\"id\":\"1\",\"labels\":[{\"label\":\"Photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
 

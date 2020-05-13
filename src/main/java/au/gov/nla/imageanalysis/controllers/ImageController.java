@@ -42,7 +42,7 @@ public class ImageController {
          * urlCorrect, should be used to create imageService.
          */
         String urlCorrect = "https://dl-devel.nla.gov.au/dl-repo/ImageController/"+pid;
-        String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-159043847-t&md5=O6N-K5SwjBH2ApTGObbxvA&expires=1587996000";
+        String urlReplacement ="https://trove.nla.gov.au/proxy?url=http://nla.gov.au/nla.obj-142006121-t&md5=IPTuIUjvIhDM3l-IPxq7SQ&expires=1590415200";
         log.info("Correct Url: {}",urlCorrect);
         log.info("Replacement URL: {}", urlReplacement);
         //ImageService imageService = new ImageService(urlCorrect);
