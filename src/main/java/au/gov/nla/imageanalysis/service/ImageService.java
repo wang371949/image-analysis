@@ -42,8 +42,6 @@ import java.util.List;
 public class ImageService {
 
     private final Logger log = LoggerFactory.getLogger(ImageService.class);
-
-
     @Autowired
     private ApplicationConfiguration config;
 
