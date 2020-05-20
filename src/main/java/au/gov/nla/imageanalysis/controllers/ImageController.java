@@ -34,7 +34,7 @@ public class ImageController {
      */
     @RequestMapping(value = "/label/{pid:nla\\.obj-.+}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public String getImage(@PathVariable("pid") String pid, @RequestParam List<String> service) {
+    public String getImage(@PathVariable("pid") String pid, @RequestParam List<ServiceType> service) {
         return new JSONObject().put("pid",pid)
                 .put("service",new JSONArray(callImageServices(service, pid)))
                 .toString();
@@ -50,22 +50,29 @@ public class ImageController {
      * @return a JSON array containing results from selected cloud labeling services in the required format.
      * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
      */
-    private List<JSONObject> callImageServices(List<String> service, String pid) {
+    private List<JSONObject> callImageServices(List<ServiceType> service, String pid) {
         imageService.saveImage(pid, "src/main/resources/static/Images/currentImage.jpg");
         List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
-        for (String key : service) {
-            if (key.equals(ServiceType.GOOGLE_LABELING_SERVICE.getCode())) {
-                log.info("Parameters contains: {}, the services contains {}", key,ServiceType.GOOGLE_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(pid));
-            } else if (key.equals(ServiceType.AWS_LABELING_SERVICE.getCode())) {
-                log.info("Parameters contains: {}, the services contains {}", key,ServiceType.AWS_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(pid));
-            } else if (key.equals(ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getCode())){
-                log.info("Parameters contains: {}, the services contains {}", key, ServiceType.MICROSOFT_AZURE_LABELING_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageLabeling(pid));
-            } else if (key.equals(ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getCode())){
-                log.info("Parameters contains: {}, the services contains {}", key, ServiceType.MICROSOFT_AZURE_DESCRIPTION_SERVICE.getDescription());
-                ArrayOfLabelsFromSelectedServices.add(imageService.azureImageDescription(pid));
+        for (ServiceType serviceType : service){
+            switch (serviceType){
+                case GL:
+                    log.info("Parameters contains: {}, the services contains {}", serviceType,serviceType.getDescription());
+                    ArrayOfLabelsFromSelectedServices.add(imageService.googleImageLabeling(pid));
+                    break;
+                case AL:
+                    log.info("Parameters contains: {}, the services contains {}", serviceType,serviceType.getDescription());
+                    ArrayOfLabelsFromSelectedServices.add(imageService.AWSImageLabeling(pid));
+                    break;
+                case ML:
+                    log.info("Parameters contains: {}, the services contains {}", serviceType, serviceType.getDescription());
+                    ArrayOfLabelsFromSelectedServices.add(imageService.azureImageLabeling(pid));
+                    break;
+                case MD:
+                    log.info("Parameters contains: {}, the services contains {}", serviceType, serviceType.getDescription());
+                    ArrayOfLabelsFromSelectedServices.add(imageService.azureImageDescription(pid));
+                    break;
+                default:
+                    log.info("Parameters contains: {}, it is not a available service.",ServiceType.MD.getDescription());
             }
         }
         return ArrayOfLabelsFromSelectedServices;

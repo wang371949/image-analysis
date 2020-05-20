@@ -20,6 +20,16 @@ public class ApplicationConfiguration {
 
 
 
+    @Value("${correctUrl}")
+    private String correctUrl;
+
+    @Value("${replacementUrl}")
+    private String replacementUrl;
+
+
+
+
+
     public String getAWSAccessKey(){
         return awsAccessKey;
     }
@@ -32,6 +42,14 @@ public class ApplicationConfiguration {
     }
     public String getAzureEndPoint(){
         return azureEndPoint;
+    }
+
+    public String getCorrectUrl(){
+        return correctUrl;
+    }
+
+    public String getReplacementUrl(){
+        return replacementUrl;
     }
 
 

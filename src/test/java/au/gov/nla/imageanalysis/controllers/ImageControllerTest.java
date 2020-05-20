@@ -1,6 +1,7 @@
 package au.gov.nla.imageanalysis.controllers;
 
 
+import au.gov.nla.imageanalysis.enums.ServiceType;
 import au.gov.nla.imageanalysis.service.ImageService;
 
 import org.json.JSONException;
@@ -33,7 +34,7 @@ class ImageControllerTest {
         String expectedResult = "{\"service\":[{\"id\":\"GL\",\"labels\":[{\"label\":\"Photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
 
         when(imageService.googleImageLabeling(anyString())).thenReturn(new JSONObject(googleImageLabelingResponse));
-        String actualResult = imageController.getImage(pid, Arrays.asList("GL"));
+        String actualResult = imageController.getImage(pid, Arrays.asList(ServiceType.GL));
 
         verify(imageService).googleImageLabeling(pid);
         assertEquals(expectedResult, actualResult);

@@ -25,13 +25,11 @@ public class CSVHelper {
             String line = null;
             while((line=br.readLine())!=null){
                 String [] id_labels = line.split(",");
-                String id = id_labels[0];
-                String [] labels = id_labels[1].split(" ");
                 List<ImageLabel> imageLabels = new ArrayList<>();
-                for (int i=0; i<labels.length;i++){
-                    imageLabels.add(new ImageLabel(labels[i]));
+                for (String label: id_labels[1].split(" ")){
+                    imageLabels.add(new ImageLabel(label));
                 }
-                map.put(id,imageLabels);
+                map.put(id_labels[0],imageLabels);
             }
         }catch (Exception e){{log.error("IOException: "+e.getMessage(),e);}
         }

@@ -31,7 +31,7 @@ public class ImageLabel {
             }
             Map<String,List<ImageLabel>> targets = CSVHelper.readCSV("src/main/resources/static/Image Labels/labels.csv");
             if (targets.keySet().contains(pid)){
-                serviceOutput = sentenceBreakDown(serviceOutput);
+                serviceOutput = fromSentencesToLabels(serviceOutput);
                 float evaluationScore = evaluation(serviceOutput,targets.get(pid));
                 return new JSONObject().put("id",serviceType.getCode()).put("labels",new JSONArray(labelsAsJsonObject))
                         .put("Evaluation", evaluationScore);
@@ -45,14 +45,13 @@ public class ImageLabel {
 
     /**
      * This method calculate the evaluation score. Further improvement may be required
-     * @param serviceOutputs outputs from cloud service API functions.
+     * @param serviceOutput outputs from cloud service API functions.
      * @param targets targets read from csv file
      * @return evaluation score
      */
-    private static float evaluation (List<ImageLabel> serviceOutputs, List<ImageLabel> targets){
-        serviceOutputs = softmax(serviceOutputs);
+    private static float evaluation (List<ImageLabel> serviceOutput, List<ImageLabel> targets){
         float evaluationScore = 0.0f;
-        for(ImageLabel outputLabel: serviceOutputs){
+        for(ImageLabel outputLabel: softmax(serviceOutput)){
             for(ImageLabel targetLabel: targets){
                 if (outputLabel.name.equals(targetLabel.name)){
                     evaluationScore += outputLabel.confidence;
@@ -82,21 +81,18 @@ public class ImageLabel {
     /**
      * This method breaks down a sentence label into separate word labels. It allows the evaluation to take place
      * on word by word basis.
-     * @param serviceOutput outputs from cloud service API functions
+     * @param sentenceOutput list of imageLabel instances with labels as sentences
      * @return outputs from cloud service API functions
      */
-    private static List<ImageLabel> sentenceBreakDown (List<ImageLabel> serviceOutput){
-        List<ImageLabel> breakupSentence = serviceOutput;
-        if(serviceOutput.size()==1){
-            String [] sentence = serviceOutput.get(0).name.split(" ");
-            if (sentence.length>1){
-                breakupSentence = new ArrayList<>();
-                for (int i=0;i<sentence.length;i++){
-                    breakupSentence.add(new ImageLabel(serviceOutput.get(0).name,serviceOutput.get(0).confidence));
-                }
+    private static List<ImageLabel> fromSentencesToLabels (List<ImageLabel> sentenceOutput){
+        List<ImageLabel>imageLabels = new ArrayList<>();
+        for(ImageLabel sentenceLabel: sentenceOutput) {
+            String [] labels = sentenceLabel.name.split(" ");
+            for(String label: labels) {
+                imageLabels.add(new ImageLabel(label,sentenceLabel.confidence));
             }
         }
-        return breakupSentence;
+        return imageLabels;
     }
 
     public String getName() {return name; }
