@@ -1,12 +1,11 @@
 package au.gov.nla.imageanalysis.service;
 
 
-import au.gov.nla.imageanalysis.enums.ServiceType;
+
 import au.gov.nla.imageanalysis.util.ImageLabel;
 import com.google.cloud.vision.v1.AnnotateImageResponse;
 import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,13 +43,12 @@ public class GoogleImageService {
 
     /**
      * Call google cloud vision image Labeling API
-     * @param pid the id of the image that's being processed by Google Cloud Vision.
      * @param url the url of the image that's being processed by Google Cloud Vision.
      * @return a JSONObject containing results from google cloud vision in the required format
      *         eg, {"id","GL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
      */
-    public JSONObject googleImageLabeling(String pid, String url){
-        List<ImageLabel> imageLabels = new ArrayList<>();
+    public List<ImageLabel> googleImageLabeling(String url){
+        List<ImageLabel> serviceOutput = new ArrayList<>();
         Resource imageResource = resourceLoader.getResource(url);
         AnnotateImageResponse response = cloudVisionTemplate.analyzeImage(imageResource, Feature.Type.LABEL_DETECTION);
         Map<String, Float> results = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
@@ -61,9 +59,9 @@ public class GoogleImageService {
                 },
                 LinkedHashMap::new));
         for (String label: results.keySet()){
-            imageLabels.add(new ImageLabel(label,results.get(label)));
+            serviceOutput.add(new ImageLabel(label,results.get(label)));
         }
-        return ImageLabel.covertToJSON(imageLabels, ServiceType.GL, pid);
+        return serviceOutput;
     }
 
 }

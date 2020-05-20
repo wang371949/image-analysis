@@ -26,6 +26,12 @@ public class ApplicationConfiguration {
     @Value("${replacementUrl}")
     private String replacementUrl;
 
+    @Value("${imageSaveLocation}")
+    private String imageSaveLocation;
+
+    @Value("${testLabelLocation}")
+    private String testLabelLocation;
+
 
 
 
@@ -51,6 +57,10 @@ public class ApplicationConfiguration {
     public String getReplacementUrl(){
         return replacementUrl;
     }
+
+    public String getImageSaveLocation(){ return imageSaveLocation;}
+
+    public String getTestLabelLocation(){return testLabelLocation;}
 
 
 

@@ -51,7 +51,7 @@ public class ImageController {
      * eg, [JSON object from calling googleImageLabeling, JSON object from calling AWSImageLabeling,...]
      */
     private List<JSONObject> callImageServices(List<ServiceType> service, String pid) {
-        imageService.saveImage(pid, "src/main/resources/static/Images/currentImage.jpg");
+        imageService.saveImage(pid);
         List<JSONObject> ArrayOfLabelsFromSelectedServices = new ArrayList<>();
         for (ServiceType serviceType : service){
             switch (serviceType){
