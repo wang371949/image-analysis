@@ -1,5 +1,6 @@
 package au.gov.nla.imageanalysis.util;
 
+import au.gov.nla.imageanalysis.logic.ImageLabel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,20 +19,17 @@ public class CSVHelper {
      * @param filePath  the file path to the csv file
      * @return a hash map. The key is the pid and values are lists of instances of ImageLabels class
      */
-    public static Map<String, List<ImageLabel>> readCSV(String filePath){
+    public static Map<String, List<ImageLabel>> readCSV(String filePath) throws IOException {
         Map<String, List<ImageLabel>> map = new HashMap<String, List<ImageLabel>>();
-        try{
-            BufferedReader br = new BufferedReader(new FileReader(filePath));
-            String line = null;
-            while((line=br.readLine())!=null){
-                String [] id_labels = line.split(",");
-                List<ImageLabel> imageLabels = new ArrayList<>();
-                for (String label: id_labels[1].split(" ")){
-                    imageLabels.add(new ImageLabel(label));
-                }
-                map.put(id_labels[0],imageLabels);
+        BufferedReader br = new BufferedReader(new FileReader(filePath));
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            String[] id_labels = line.split(",");
+            List<ImageLabel> imageLabels = new ArrayList<>();
+            for (String label : id_labels[1].split(" ")) {
+                imageLabels.add(new ImageLabel(label));
             }
-        }catch (Exception e){{log.error("IOException: "+e.getMessage(),e);}
+            map.put(id_labels[0], imageLabels);
         }
         return map;
     }

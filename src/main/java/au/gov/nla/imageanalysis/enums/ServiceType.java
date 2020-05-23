@@ -1,19 +1,26 @@
 package au.gov.nla.imageanalysis.enums;
 
 public enum ServiceType {
-    GL("GL", "Google Image Labeling Service"),
-    AL("AL", "AWS Image Labeling Service"),
-    ML("ML", "Microsoft Image Labeling Service"),
-    MD("MD", "Microsoft Image Description Service");
+    GL("GL",false, "Google Image Labeling Service"),
+    AL("AL",false,"AWS Image Labeling Service"),
+    ML("ML",false, "Microsoft Image Labeling Service"),
+    MD("MD",true, "Microsoft Image Description Service");
 
-    private String code;
-    private String description;
+    private final String code;
+    private final boolean labelsAreSentences;
+    private final String description;
 
-    private ServiceType(String code, String description){this.code=code; this.description =description;}
+
+    ServiceType(String code, boolean labelsAreSentences, String description){
+        this.code=code;
+        this.labelsAreSentences=labelsAreSentences;
+        this.description =description;
+    }
 
 
     public String getCode(){return this.code;}
     public String getDescription(){return this.description;}
+    public boolean getLabelAreSentences(){return labelsAreSentences;}
 
     @Override
     public String toString(){

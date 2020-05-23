@@ -2,6 +2,9 @@ package au.gov.nla.imageanalysis.controllers;
 
 
 import au.gov.nla.imageanalysis.enums.ServiceType;
+import au.gov.nla.imageanalysis.logic.ImageLabel;
+import au.gov.nla.imageanalysis.logic.ImageLabels;
+import au.gov.nla.imageanalysis.logic.ServiceOutput;
 import au.gov.nla.imageanalysis.service.ImageService;
 
 import org.json.JSONException;
@@ -30,13 +33,18 @@ class ImageControllerTest {
     @Test
     void getImage() throws JSONException {
         String pid = "nla.obj-123";
-        String googleImageLabelingResponse = "{\"id\":\"GL\", \"labels\":[{\"label\":\"Photograph\", \"relevance\": 0.9539}]}";
+        ImageLabels googleLabels = new ImageLabels(ServiceType.GL);
+        googleLabels.addImageLabel(new ImageLabel("Photograph", 0.9539f));
+        ServiceOutput serviceOutput = new ServiceOutput(pid);
+        serviceOutput.putImageServiceResult(ServiceType.GL,googleLabels);
         String expectedResult = "{\"service\":[{\"id\":\"GL\",\"labels\":[{\"label\":\"Photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
 
-        when(imageService.googleImageLabeling(anyString())).thenReturn(new JSONObject(googleImageLabelingResponse));
+        when(imageService.callImageServices(pid,Arrays.asList(ServiceType.GL))).thenReturn(serviceOutput);
         String actualResult = imageController.getImage(pid, Arrays.asList(ServiceType.GL));
 
-        verify(imageService).googleImageLabeling(pid);
+        verify(imageService).callImageServices(pid,Arrays.asList(ServiceType.GL));
         assertEquals(expectedResult, actualResult);
     }
+
+
 }

@@ -3,23 +3,19 @@ package au.gov.nla.imageanalysis.service;
 
 import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
 import au.gov.nla.imageanalysis.enums.ServiceType;
-import au.gov.nla.imageanalysis.util.CSVHelper;
-import au.gov.nla.imageanalysis.util.Evaluation;
-import au.gov.nla.imageanalysis.util.HttpHelper;
-import au.gov.nla.imageanalysis.util.ImageLabel;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import au.gov.nla.imageanalysis.logic.ImageLabel;
+import au.gov.nla.imageanalysis.logic.ImageLabels;
+import au.gov.nla.imageanalysis.logic.ServiceOutput;
+import au.gov.nla.imageanalysis.util.*;
+
+import com.amazonaws.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.File;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -47,96 +43,75 @@ public class ImageService {
         return urlReplacement;
     }
 
-    /**
-     * Capture the image from given url and stored as an inputStream
-     * @return an inputStream of an image from a given url
-     * @throws IOException if the url contents cannot be retrieved
-     */
-    public InputStream getInputStreamFromUrl(String url) throws IOException{ return HttpHelper.getAsStream(url);}
 
     /**
-     * call Amazon Web Service (AWS) image Labeling API
-     * @param pid the id of the image that's being processed by Google Cloud Vision.
-     * @return a JSONObject containing results from AWS in the required format
-     *         eg, {"id","AL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
+     * This method processes an image with selected services and stores the returned JSON objects into a JSON array
+     *
+     * @param service  a list of String number, each number points to a cloud service.
+     *                 eg, GL = google labeling service, AL = AWS labeling service ML = Microsoft azure labeling service
+     *                     MD = Microsoft azure description services
+     * @param pid the id of the image that's being processed by the cloud services
+     * @return an instance of ServiceOutput storing the results
      */
-    public JSONObject AWSImageLabeling(String pid){
-        return covertToJSON(awsImageService.AWSImageLabeling(getUrl(pid), config.getAWSAccessKey(),config.getAWSSecretKey()),
-                ServiceType.AL,
-                pid);}
-
-    /**
-     * Call google cloud vision image Labeling API
-     * @param pid the id of the image that's being processed by Google Cloud Vision.
-     * @return a JSONObject containing results from google cloud vision in the required format
-     *         eg, {"id","GL", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
-     */
-    public JSONObject googleImageLabeling(String pid){
-        return covertToJSON(googleImageService.googleImageLabeling(getUrl(pid)),
-                ServiceType.GL,
-                pid);}
-
-    /**
-     * Call microsoft azure computer vision image Labeling API
-     * @param pid the id of the image that's being processed by Microsoft azure.
-     * @return a JSONObject containing results from microsoft azure  in the required format
-     *        eg, {"id","ML", "labels":[{"label":"Photograph", "relevance": 0.9539},...]}
-     */
-    public JSONObject azureImageLabeling(String pid){
-        return covertToJSON(azureImageService.azureImageLabeling(getUrl(pid),config.getAzureAccessKey(),config.getAzureEndPoint()),
-                ServiceType.ML,
-                pid);}
-
-    /**
-     * Call microsoft azure computer vision image description API
-     * @param pid the id of the image that's being processed by Microsoft azure.
-     * @return a JSONObject containing results from microsoft azure  in the required format
-     *        eg, {"id","MD", "descriptions":[{"description":"Photograph", "relevance": 0.9539},...]}
-     */
-    public JSONObject azureImageDescription(String pid){
-        return covertToJSON(azureImageService.azureImageDescription(getUrl(pid),config.getAzureAccessKey(),config.getAzureEndPoint()),
-                ServiceType.MD,
-                pid);}
-
-    /**
-     * save the image of given url into local file for visualization
-     * @param pid the id of the image that's being saved.
-     */
-    public void saveImage(String pid){
-        BufferedImage image = null;
-        File outputfile = new File(config.getImageSaveLocation());
+    public ServiceOutput callImageServices(String pid, List<ServiceType> service){
+        ServiceOutput serviceOutput = new ServiceOutput(pid);
         try{
-            InputStream in = getInputStreamFromUrl(getUrl(pid));
-            image = ImageIO.read(in);
-            ImageIO.write(image,"jpg",outputfile);
-        } catch (IOException e){log.error("IOException: "+e.getMessage(),e);}
+            Map<String,List<ImageLabel>> targets = CSVHelper.readCSV(config.getTestLabelLocation());
+            byte[] imageAsByteArray = IOUtils.toByteArray(HttpHelper.getAsStream(getUrl(pid)));
+            saveImage(imageAsByteArray);
+            for (ServiceType serviceType : service){
+                ImageLabels imageLabels = callImageService(imageAsByteArray, serviceType);
+                if(serviceOutput.isInTheTestSet(pid,targets)){
+                    imageLabels.getEvaluation(targets.get(pid));
+                }
+                serviceOutput.putImageServiceResult(serviceType, imageLabels);
+            }
+        }catch (IOException e){
+            log.error("IOException: "+e.getMessage(),e);
+        }
+        return serviceOutput;
     }
 
+    /**
+     * The method checks which service is being called and then call the service
+     * @param imageAsByteArray The byte array of the image being processed
+     * @param serviceType The cloud service type that's being used to label the image
+     * @return an instance of ImageLabels storing the results
+     */
+
+    public ImageLabels callImageService(byte [] imageAsByteArray, ServiceType serviceType){
+        switch (serviceType){
+            case GL:
+                log.info("Parameters contains: {}, the services contains {}", serviceType,serviceType.getDescription());
+                return googleImageService.googleImageLabeling(imageAsByteArray);
+            case AL:
+                log.info("Parameters contains: {}, the services contains {}", serviceType,serviceType.getDescription());
+                return awsImageService.AWSImageLabeling(imageAsByteArray,config.getAWSAccessKey(),config.getAWSSecretKey());
+            case ML:
+                log.info("Parameters contains: {}, the services contains {}", serviceType, serviceType.getDescription());
+                return azureImageService.azureImageLabeling(imageAsByteArray,config.getAzureAccessKey(),config.getAzureEndPoint());
+            case MD:
+                log.info("Parameters contains: {}, the services contains {}", serviceType, serviceType.getDescription());
+                return azureImageService.azureImageDescription(imageAsByteArray,config.getAzureAccessKey(),config.getAzureEndPoint());
+            default:
+                log.info("Parameters contains: {}, it is not a available service.",ServiceType.MD.getDescription());
+                return new ImageLabels(serviceType);
+        }
+    }
 
     /**
-     * This method processes the results returned from cloud services, evalute them and store them in a JSON object.
-     * @param serviceOutput outputs from cloud service API functions.
-     * @param serviceType an enum indicate the type of cloud service
-     * @param pid the id of the pictrue being processed
-     * @return a JSON object of pre-defined format
+     * This method saves a image using byte array
+     * @param imageAsByteArray the byte array of the image being saved
      */
-    private JSONObject covertToJSON(List<ImageLabel> serviceOutput, ServiceType serviceType, String pid){
-        if(serviceOutput.size()!=0){
-            List<JSONObject> labelsAsJsonObject = new ArrayList<>();
-            for (ImageLabel imageLabel: serviceOutput){
-                labelsAsJsonObject.add(new JSONObject().put("label",imageLabel.getName()).put("relevance",imageLabel.getConfidence()));
-            }
-            Map<String,List<ImageLabel>> targets = CSVHelper.readCSV(config.getTestLabelLocation());
-            if (targets.containsKey(pid)){
-                serviceOutput = Evaluation.fromSentencesToLabels(serviceOutput);
-                float evaluationScore = Evaluation.getEvaluation(serviceOutput,targets.get(pid));
-                return new JSONObject().put("id",serviceType.getCode()).put("labels",new JSONArray(labelsAsJsonObject))
-                        .put("Evaluation", evaluationScore);
-            }else{
-                return new JSONObject().put("id",serviceType.getCode()).put("labels",new JSONArray(labelsAsJsonObject))
-                        .put("Evaluation", "Not in Test Set");
-            }
+    public void saveImage(byte[] imageAsByteArray) throws IOException{
+        InOut.saveImage(imageAsByteArray,config.getImageSaveLocation());
+    }
+
+    public static void main(String[] args) {
+        try{
+            InOut.loadImagePathAsList("src/main/resources/static/test/images");
+        }catch (IOException e){
+            e.printStackTrace();
         }
-        return new JSONObject().put("id",serviceType.getCode()).put("labels","No labels detected");
     }
 }

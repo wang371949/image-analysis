@@ -18,7 +18,8 @@ public class ApplicationConfiguration {
     @Value("${azure.endpoint}")
     private String azureEndPoint;
 
-
+    @Value("5")
+    private int maxNumLabelsPerService;
 
     @Value("${correctUrl}")
     private String correctUrl;
@@ -61,6 +62,8 @@ public class ApplicationConfiguration {
     public String getImageSaveLocation(){ return imageSaveLocation;}
 
     public String getTestLabelLocation(){return testLabelLocation;}
+
+    public int getMaxNumLabelsPerService(){return maxNumLabelsPerService;}
 
 
 
