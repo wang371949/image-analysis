@@ -33,6 +33,10 @@ public class ApplicationConfiguration {
     @Value("${testLabelLocation}")
     private String testLabelLocation;
 
+    @Value("${testImageLocation}")
+    private String testImageLocation;
+
+
 
 
 
@@ -62,6 +66,8 @@ public class ApplicationConfiguration {
     public String getImageSaveLocation(){ return imageSaveLocation;}
 
     public String getTestLabelLocation(){return testLabelLocation;}
+
+    public String getTestImageLocation(){return testImageLocation;}
 
     public int getMaxNumLabelsPerService(){return maxNumLabelsPerService;}
 

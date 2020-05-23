@@ -1,6 +1,5 @@
 package au.gov.nla.imageanalysis.util;
 
-import au.gov.nla.imageanalysis.logic.ImageLabel;
 
 import java.util.Arrays;
 

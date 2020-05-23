@@ -8,23 +8,17 @@ import au.gov.nla.imageanalysis.logic.ImageLabels;
 import com.google.cloud.vision.v1.AnnotateImageResponse;
 import com.google.cloud.vision.v1.EntityAnnotation;
 import com.google.cloud.vision.v1.Feature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 
-import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
-import java.util.List;
+
 
 
 @Component

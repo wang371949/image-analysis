@@ -7,6 +7,7 @@ import au.gov.nla.imageanalysis.util.Maths;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,14 +46,29 @@ public class ImageLabels {
     }
 
     /**
-     * This method calculate the evaluation score.
-     * @param target the list of target labels of a given pid in the test file
+     * The method converts the fields variables to String to be written into csv file
      */
-    public void getEvaluation (List<ImageLabel> target){
-        List<ImageLabel> preprocessedLabels = this.serviceType.getLabelAreSentences()? softmaxOperation(fromSentencesToLabels()):imageLabels;
+    public String toCustomizedCsvFormat(){
+        String customizedCsvFormat = "";
+        for(int i=0;i<imageLabels.size();i++){
+            if(i!=0){
+                customizedCsvFormat+=", ";
+            }
+            customizedCsvFormat+=imageLabels.get(i).toCustomizedCsvFormat();
+        }
+        return customizedCsvFormat;
+    }
+
+    /**
+     * This method calculate the evaluation score.
+     * @param testTarget The test labels
+     */
+    public void getEvaluation (List<ImageLabel> testTarget){
+        List<ImageLabel> preprocessedLabels = this.serviceType.getLabelAreSentences() ?
+                softmaxOperation(fromSentencesToLabels(imageLabels)) : softmaxOperation(imageLabels);
         float score = 0.0f;
         for (ImageLabel imageLabel : preprocessedLabels) {
-            for (ImageLabel targetLabel : target) {
+            for (ImageLabel targetLabel : testTarget) {
                 if (imageLabel.getName().equals(targetLabel.getName())) {
                     score += imageLabel.getConfidence();
                 }
@@ -83,14 +99,18 @@ public class ImageLabels {
      * This method breaks down a sentence label into separate word labels. It allows the evaluation to take place
      * on word by word basis.
      */
-    public List<ImageLabel> fromSentencesToLabels (){
+    public List<ImageLabel> fromSentencesToLabels (List<ImageLabel> imageLabels){
         List<ImageLabel>separatedLabels = new ArrayList<>();
-        for(ImageLabel sentenceLabel: this.imageLabels) {
+        for(ImageLabel sentenceLabel: imageLabels) {
             String [] labels = sentenceLabel.getName().split(" ");
             for(String label: labels) {
                 separatedLabels.add(new ImageLabel(label,sentenceLabel.getConfidence()));
             }
         }
         return separatedLabels;
+    }
+
+    public Float getEvaluationScore() {
+        return evaluationScore;
     }
 }

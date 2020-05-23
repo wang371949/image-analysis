@@ -3,21 +3,17 @@ package au.gov.nla.imageanalysis.controllers;
 
 import au.gov.nla.imageanalysis.service.ImageService;
 import au.gov.nla.imageanalysis.enums.ServiceType;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletResponse;
 import java.util.*;
 
 
 @Controller
 public class ImageController {
-
-    private final Logger log = LoggerFactory.getLogger(ImageController.class);
 
     @Autowired
     ImageService imageService;
@@ -36,5 +32,15 @@ public class ImageController {
     @ResponseBody
     public String getImage(@PathVariable("pid") String pid, @RequestParam List<ServiceType> service) {
         return imageService.callImageServices(pid,service).toJSON().toString();
+    }
+
+    /**
+     * This method allows the processes of image from a local folder and stores all the results in a csv file
+     * @param service a list of String number, each number points to a cloud service. eg, 1 = google labeling service, 2 = AWS labeling service
+     */
+    @RequestMapping(value = "/labels", method = RequestMethod.GET)
+    @ResponseBody
+    public void processImages(@RequestParam List<ServiceType> service, HttpServletResponse response) {
+        imageService.processImages(service, response);
     }
 }
