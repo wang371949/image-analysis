@@ -49,11 +49,7 @@ public class ImageLabels {
      * @param target the list of target labels of a given pid in the test file
      */
     public void getEvaluation (List<ImageLabel> target){
-        List<ImageLabel> preprocessedLabels = this.imageLabels;
-        if(this.serviceType.getLabelAreSentences()){
-            preprocessedLabels = fromSentencesToLabels();
-        }
-        softmaxOperation();
+        List<ImageLabel> preprocessedLabels = this.serviceType.getLabelAreSentences()? softmaxOperation(fromSentencesToLabels()):imageLabels;
         float score = 0.0f;
         for (ImageLabel imageLabel : preprocessedLabels) {
             for (ImageLabel targetLabel : target) {
@@ -69,16 +65,18 @@ public class ImageLabels {
      * This method converts the distribution of output confidence values into softmax distribution.
      * It forms part of evaluation calculation
      */
-    public void softmaxOperation(){
-        int numOfLabels = this.imageLabels.size();
+    public List<ImageLabel> softmaxOperation(List<ImageLabel> imageLabelsForProcessing){
+        List<ImageLabel>softmaxLabels = new ArrayList<>();
+        int numOfLabels = imageLabelsForProcessing.size();
         double [] confidences = new double[numOfLabels];
         for (int i=0; i<numOfLabels;i++){
-            confidences[i]= this.imageLabels.get(i).getConfidence();
+            confidences[i]= imageLabelsForProcessing.get(i).getConfidence();
         }
         double [] softmaxConfidences = Maths.softmax(confidences);
         for (int i=0; i<numOfLabels;i++){
-            this.imageLabels.get(i).setConfidence((float) softmaxConfidences[i]);
+            softmaxLabels.add(new ImageLabel(imageLabelsForProcessing.get(i).getName(),(float) softmaxConfidences[i]));
         }
+        return softmaxLabels;
     }
 
     /**
