@@ -36,6 +36,8 @@ public class ApplicationConfiguration {
     @Value("${testImageLocation}")
     private String testImageLocation;
 
+    private float wordThreshold = 0.9f;
+
 
 
 
@@ -70,6 +72,8 @@ public class ApplicationConfiguration {
     public String getTestImageLocation(){return testImageLocation;}
 
     public int getMaxNumLabelsPerService(){return maxNumLabelsPerService;}
+
+    public float getWordThreshold(){return wordThreshold;}
 
 
 

@@ -48,13 +48,13 @@ public class ImageLabels {
     /**
      * The method converts the fields variables to String to be written into csv file
      */
-    public String toCustomizedCsvFormat(){
+    public String toCsv(){
         String customizedCsvFormat = "";
         for(int i=0;i<imageLabels.size();i++){
             if(i!=0){
                 customizedCsvFormat+=", ";
             }
-            customizedCsvFormat+=imageLabels.get(i).toCustomizedCsvFormat();
+            customizedCsvFormat+=imageLabels.get(i).toCsv();
         }
         return customizedCsvFormat;
     }
@@ -63,18 +63,17 @@ public class ImageLabels {
      * This method calculate the evaluation score.
      * @param testTarget The test labels
      */
-    public void getEvaluation (List<ImageLabel> testTarget){
-        List<ImageLabel> preprocessedLabels = this.serviceType.getLabelAreSentences() ?
-                softmaxOperation(fromSentencesToLabels(imageLabels)) : softmaxOperation(imageLabels);
+    public void getEvaluation (List<ImageLabel> testTarget, float threshold){
+        List<ImageLabel> preprocessedLabels = softmaxOperation(fromSentencesToLabels(imageLabels));
         float score = 0.0f;
         for (ImageLabel imageLabel : preprocessedLabels) {
             for (ImageLabel targetLabel : testTarget) {
-                if (imageLabel.getName().equals(targetLabel.getName())) {
+                if (imageLabel.isSimilar(targetLabel,threshold)) {
                     score += imageLabel.getConfidence();
                 }
             }
         }
-        this.evaluationScore = score;
+        this.evaluationScore = (float)(Math.round(score*100.0)/100.0);
     }
 
     /**

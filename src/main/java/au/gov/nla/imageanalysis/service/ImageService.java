@@ -66,7 +66,7 @@ public class ImageService {
                 ImageLabels imageLabels = callImageService(imageAsByteArray, serviceType);
                 List<ImageLabel> testTarget = serviceOutput.getTestTarget();
                 if(testTarget.size()>0){
-                    imageLabels.getEvaluation(testTarget);
+                    imageLabels.getEvaluation(testTarget, config.getWordThreshold());
                 }
                 serviceOutput.putImageServiceResult(serviceType, imageLabels);
             }
@@ -82,29 +82,26 @@ public class ImageService {
      */
     public void processImages(List<ServiceType> services, HttpServletResponse response){
         List<String[]> resultList = new ArrayList<>();
-        resultList.add(new ServiceOutput(services).csvTitles());
+        resultList.add(new ServiceOutput(services).makeCsvTitles());
         try {
             Map<String,String> imageList = InOut.loadImagePathAsList(config.getTestImageLocation());
             int imageNumber = 0;
             int totalNumberOfImages = imageList.size();
             for(String pid: imageList.keySet()){
+                log.info("Progress: {}/{},  Processing Image: {}", imageNumber + 1, totalNumberOfImages, pid);
                 ServiceOutput serviceOutput = new ServiceOutput(pid, services);
                 byte[] imageAsByteArray = IOUtils.toByteArray(InOut.loadImage(imageList.get(pid)));
                 serviceOutput.loadTestTargets(config.getTestLabelLocation());
-                for (ServiceType serviceType : services){
+                for (ServiceType serviceType : services) {
                     ImageLabels imageLabels = callImageService(imageAsByteArray, serviceType);
                     List<ImageLabel> testTarget = serviceOutput.getTestTarget();
-                    if(testTarget.size()>0){
-                        imageLabels.getEvaluation(testTarget);
+                    if (testTarget.size() > 0) {
+                        imageLabels.getEvaluation(testTarget, config.getWordThreshold());
                     }
                     serviceOutput.putImageServiceResult(serviceType, imageLabels);
                 }
-                resultList.add(serviceOutput.toCustomizedCsvFormat());
+                resultList.add(serviceOutput.toCsv());
                 imageNumber+=1;
-                log.info("Progress: {}/{},  Processing Image: {}.",imageNumber,totalNumberOfImages,pid);
-                if(imageNumber==10){
-                    break;
-                }
             }
             exportCSV(resultList, response);
         }catch (IOException e){

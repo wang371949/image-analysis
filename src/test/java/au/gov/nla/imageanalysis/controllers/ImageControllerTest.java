@@ -36,7 +36,7 @@ class ImageControllerTest {
         googleLabels.addImageLabel(new ImageLabel("Photograph", 0.9539f));
         ServiceOutput serviceOutput = new ServiceOutput(pid,Arrays.asList(ServiceType.GL));
         serviceOutput.putImageServiceResult(ServiceType.GL,googleLabels);
-        String expectedResult = "{\"service\":[{\"id\":\"GL\",\"labels\":[{\"label\":\"photograph\",\"relevance\":0.9539}]}],\"pid\":\"nla.obj-123\"}";
+        String expectedResult = "{\"service\":[{\"id\":\"GL\",\"labels\":[{\"label\":\"photograph\",\"relevance\":0.95}]}],\"pid\":\"nla.obj-123\"}";
 
         when(imageService.callImageServices(pid,Arrays.asList(ServiceType.GL))).thenReturn(serviceOutput);
         String actualResult = imageController.getImage(pid, Arrays.asList(ServiceType.GL));

@@ -1,6 +1,9 @@
 package au.gov.nla.imageanalysis.util;
 
 
+import org.apache.commons.text.similarity.JaroWinklerDistance;
+import org.apache.commons.text.similarity.JaroWinklerSimilarity;
+
 import java.util.Arrays;
 
 public class Maths {
@@ -17,5 +20,10 @@ public class Maths {
             probabilities[i] = Math.exp(probabilities[i])/total;
         }
         return probabilities;
+    }
+
+    public static double wordSimilarity(String word1, String word2){
+        JaroWinklerSimilarity jaroWinklerSimilarity = new JaroWinklerSimilarity();
+        return jaroWinklerSimilarity.apply(word1,word2);
     }
 }

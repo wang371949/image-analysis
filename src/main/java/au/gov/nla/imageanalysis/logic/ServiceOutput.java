@@ -16,13 +16,15 @@ public class ServiceOutput {
     Map<ServiceType,ImageLabels> services;
     List<ServiceType> serviceTypes;
     String pid;
+    String testTargetOriginalTitle;
     List<ImageLabel> testTarget;
 
     /** Constructors  */
     public ServiceOutput(String pid, List<ServiceType> serviceTypes){
         this.services = new HashMap<>();
         this.pid = pid;
-        testTarget = new ArrayList<>();
+        this.testTarget = new ArrayList<>();
+        this.testTargetOriginalTitle = "";
         this.serviceTypes = serviceTypes;
     }
     public ServiceOutput(List<ServiceType> serviceTypes){
@@ -51,51 +53,53 @@ public class ServiceOutput {
     /**
      * The method converts the fields variables to a String array which will be written into a csv file
      */
-    public String[] toCustomizedCsvFormat(){
+    public String[] toCsv(){
         int numOfServiceType = ServiceType.values().length;
-        String [] customizedCsvFormat = new String[numOfServiceType*2+2];
-        Arrays.fill(customizedCsvFormat, "");
-        customizedCsvFormat[0] = pid;
-        customizedCsvFormat[1] = testTargetToCustomizedCsvFormat();
+        String [] csvFormat = new String[numOfServiceType*2+3];
+        Arrays.fill(csvFormat, "");
+        csvFormat[0] = pid;
+        csvFormat[1] = this.testTargetOriginalTitle;
+        csvFormat[2] = testTargetToCsv();
         for(ServiceType serviceType: this.services.keySet()){
-            customizedCsvFormat[serviceType.getId()*2] = this.services.get(serviceType).toCustomizedCsvFormat();
+            csvFormat[serviceType.getId()*2+1] = this.services.get(serviceType).toCsv();
             if(testTarget.size()>0){
                 Float evaluationScore= this.services.get(serviceType).getEvaluationScore();
-                customizedCsvFormat[serviceType.getId()*2+1] = evaluationScore==null?"":evaluationScore+"";
+                csvFormat[serviceType.getId()*2+2] = evaluationScore==null?"":evaluationScore+"";
             }
         }
-        return customizedCsvFormat;
+        return csvFormat;
     }
 
 
     /**
      * The method builds the title row of csv file
      */
-    public String[] csvTitles(){
+    public String[] makeCsvTitles(){
         int numOfServiceType = ServiceType.values().length;
-        String [] customizedCsvTitle = new String[numOfServiceType*2+2];
-        Arrays.fill(customizedCsvTitle, "");
-        customizedCsvTitle[0] = "pid";
-        customizedCsvTitle[1] = "Test Labels";
-        for(ServiceType serviceType: serviceTypes){
-            customizedCsvTitle[serviceType.getId()*2] = serviceType.getDescription()+" Result";
-            customizedCsvTitle[serviceType.getId()*2+1] = serviceType.getDescription()+" Evaluation Score";
+        String [] csvTitle = new String[numOfServiceType*2+3];
+        Arrays.fill(csvTitle, "");
+        csvTitle[0] = "pid";
+        csvTitle[1] = "Original Title Description";
+        csvTitle[2] = "Labels from Original Title Description";
+        for(ServiceType serviceType: ServiceType.values()){
+            csvTitle[serviceType.getId()*2+1] = serviceType.getDescription()+" Result";
+            csvTitle[serviceType.getId()*2+2] = serviceType.getDescription()+" Evaluation Score (0-1)";
         }
-        return customizedCsvTitle;
+        return csvTitle;
     }
 
     /**
      * The method generates String to be written into the Test Labels column of the csv file
      */
-    public String testTargetToCustomizedCsvFormat(){
-        String customizedCsvFormat = "";
+    public String testTargetToCsv(){
+        String csvFormat = "";
         for(int i=0;i<testTarget.size();i++){
             if(i!=0){
-                customizedCsvFormat+=",";
+                csvFormat+=", ";
             }
-            customizedCsvFormat+=testTarget.get(i).toCustomizedCsvFormat();
+            csvFormat+=testTarget.get(i).toCsv();
         }
-        return customizedCsvFormat;
+        return csvFormat;
     }
 
     /**
@@ -106,7 +110,8 @@ public class ServiceOutput {
         for(int i=1; i<list.size();i++){
             String testPid = list.get(i)[0];
             if(testPid.equals(pid)){
-                String [] labels = list.get(i)[1].split(" ");
+                this.testTargetOriginalTitle = list.get(i)[1];
+                String [] labels = list.get(i)[2].split(" ");
                 for (String label : labels) {
                     testTarget.add(new ImageLabel(label));
                 }
