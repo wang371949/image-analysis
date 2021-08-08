@@ -33,3 +33,7 @@ build/
 application.properties
 primeval-nectar-271413-dccaf825aaaf.json
 .DS_Store
+currentImage.jpg
+labels.csv
+*.png
+src/main/resources/

@@ -1,21 +1,15 @@
 # machine-learning
-Machine learning projects
+Image labeling： the project completed during Internship with Australian National library in 2020 
 
-Part1: Image labeling using cloud services
+Command to start: 
+mvn clean install
+mvn spring-boot:run 
 
-command to start: mvn spring-boot:run 
+Parameters for cloud labeling services
+service = GL : Google Cloud Vision Image Labeling
+serivce = AL : AWSReKognition Image Labeling
+service = ML : Microsoft Azure Image Labeling
+service = MD : Microsoft Azure Image Description
 
-requrest format: http://localhost:8080/label/pid?service=1
-
-example: http://localhost:8080/label/nla.obj-398310603?service=1
-
-service = 1 : google cloud vision labeling
-
-serivce = 2 : amazon recognition
-
-service = 3 : show image on browser
-
-service = 4 : store image on the local file
-
-
- 
+example url request format: 
+http://localhost:8080/label/nla.obj-131286956?service=GL&&service=AL&&service=ML&&service=MD

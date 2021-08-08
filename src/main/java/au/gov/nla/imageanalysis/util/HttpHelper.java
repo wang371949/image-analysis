@@ -18,10 +18,7 @@ import java.net.URL;
 public class HttpHelper {
 
     private static Logger log = LoggerFactory.getLogger(HttpHelper.class);
-
-    private HttpHelper(){
-
-    }
+    private HttpHelper(){}
 
     public static String get(String myUrl){
         HttpURLConnection conn = null;
@@ -63,7 +60,12 @@ public class HttpHelper {
         }
     }
 
-
+    /**
+     * This method downloads image from a given url and convert it to Input stream
+     * @param queryUrl The url of the image
+     * @return Input stream of the image
+     * @throws IOException
+     */
     public static InputStream getAsStream(String queryUrl) throws IOException{
         log.debug("Requesting " + queryUrl);
 

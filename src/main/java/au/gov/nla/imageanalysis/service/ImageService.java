@@ -2,205 +2,152 @@ package au.gov.nla.imageanalysis.service;
 
 
 import au.gov.nla.imageanalysis.config.ApplicationConfiguration;
-import au.gov.nla.imageanalysis.util.HttpHelper;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.rekognition.AmazonRekognition;
-import com.amazonaws.services.rekognition.AmazonRekognitionClientBuilder;
-import com.amazonaws.services.rekognition.model.*;
-import com.google.cloud.vision.v1.AnnotateImageResponse;
-import com.google.cloud.vision.v1.EntityAnnotation;
-import com.google.cloud.vision.v1.Feature;
-import org.apache.tomcat.util.http.fileupload.IOUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import au.gov.nla.imageanalysis.enums.ServiceType;
+import au.gov.nla.imageanalysis.logic.ImageLabel;
+import au.gov.nla.imageanalysis.logic.ImageLabels;
+import au.gov.nla.imageanalysis.logic.ServiceOutput;
+import au.gov.nla.imageanalysis.util.*;
+
+import com.amazonaws.util.IOUtils;
+import com.google.common.net.HttpHeaders;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.gcp.vision.CloudVisionTemplate;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Component;
 
-import javax.imageio.ImageIO;
+
 import javax.servlet.http.HttpServletResponse;
-import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-
-import com.google.cloud.vision.v1.AnnotateImageRequest;
-import com.google.cloud.vision.v1.BatchAnnotateImagesResponse;
-import com.google.cloud.vision.v1.Feature.Type;
-import com.google.cloud.vision.v1.ImageAnnotatorClient;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.util.JsonFormat;
-import java.io.FileInputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+@Component
 public class ImageService {
-    private String url;
-//    @Autowired
-//    private ResourceLoader resourceLoader;
-//    @Autowired private CloudVisionTemplate cloudVisionTemplate;
+    private final Logger log = LoggerFactory.getLogger(ImageService.class);
+    @Autowired private ApplicationConfiguration config;
+    @Autowired private AWSImageService awsImageService;
+    @Autowired private GoogleImageService googleImageService;
+    @Autowired private AzureImageService azureImageService;
 
-    public ImageService(String url){
-        this.url = url;
+    /** Constructor */
+    public ImageService(){ super(); }
+
+    /*
+     * The access to the library computer is not available, so it uses urlReplacement, a online url for trove image access,
+     * to create imageService. This is only for testing the functionality of the cloud APIs. Once in the office environment,
+     * urlCorrect, should be used to create imageService.
+     */
+    private String getUrl(String pid){
+        String urlCorrect = config.getCorrectUrl()+pid;
+        String urlReplacement = config.getReplacementUrl();
+        log.info("Correct Url: {}",urlCorrect);
+        log.info("Replacement URL: {}", urlReplacement);
+        return urlReplacement;
     }
 
-    //method to capture the image from DLC as inputStrean
-    public InputStream get() throws IOException{
-        return HttpHelper.getAsStream(url);
-    }
 
-    //method to show image on browers, just to confirm the image is downloaded from DLC
-    public void callImageService(HttpServletResponse response) throws Exception{
-        try(InputStream in = get()){
-            try(OutputStream out = response.getOutputStream()){
-                IOUtils.copy(in,out);
-            }
-        }
-    }
-
-    //method to write downloaded image to local file
-    public void displayImage(){
-        BufferedImage image = null;
-        File outputfile = new File("src/main/java/image.jpg");
+    /**
+     * This method processes an image with selected services and stores the returned JSON objects into a JSON array
+     *
+     * @param services  a list of String number, each number points to a cloud service.
+     *                 eg, GL = google labeling service, AL = AWS labeling service ML = Microsoft azure labeling service
+     *                     MD = Microsoft azure description services
+     * @param pid the id of the image that's being processed by the cloud services
+     * @return an instance of ServiceOutput storing the results
+     */
+    public ServiceOutput callImageServices(String pid, List<ServiceType> services){
+        ServiceOutput serviceOutput = new ServiceOutput(pid, services);
         try{
-            InputStream in = get();
-            image = ImageIO.read(in);
-            ImageIO.write(image,"jpg",outputfile);
-        }catch (IOException e){
-            e.printStackTrace();
-        }
-    }
-
-    public JSONObject amazonDetectLabels(ApplicationConfiguration config) throws IOException {
-        JSONObject jsonObject =new JSONObject();
-        ByteBuffer imageBytes;
-        BasicAWSCredentials credentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
-        AmazonRekognition client = AmazonRekognitionClientBuilder.standard()
-                .withRegion(Regions.AP_SOUTHEAST_2)
-                .withCredentials(new AWSStaticCredentialsProvider(credentials))
-                .build();
-        try{
-            InputStream in = get();
-            imageBytes = ByteBuffer.wrap(com.amazonaws.util.IOUtils.toByteArray(in));
-            DetectLabelsRequest request = new DetectLabelsRequest()
-                    .withImage(new Image().withBytes(imageBytes)).withMaxLabels(10).withMinConfidence(77F);
-            try {
-                DetectLabelsResult result = client.detectLabels(request);
-                List<Label> labels = result.getLabels();
-
-                //System.out.println("Results from amazon Rekognition:");
-                ArrayList list = new ArrayList();
-                for (Label l: labels){
-                    String label = l.getName();
-                    float relevance = l.getConfidence();
-                    JSONObject jsonObject1 = new JSONObject();
-                    jsonObject1.put("label",label);
-                    jsonObject1.put("relevance",relevance);
-                    list.add(jsonObject1);
+            byte[] imageAsByteArray = IOUtils.toByteArray(HttpHelper.getAsStream(getUrl(pid)));
+            serviceOutput.loadTestTargets(config.getTestLabelLocation());
+            saveImage(imageAsByteArray);
+            for (ServiceType serviceType : services){
+                ImageLabels imageLabels = callImageService(imageAsByteArray, serviceType);
+                List<ImageLabel> testTarget = serviceOutput.getTestTarget();
+                if(testTarget.size()>0){
+                    imageLabels.getEvaluation(testTarget, config.getWordThreshold());
                 }
-                JSONObject jsonObject2 = new JSONObject();
-                jsonObject2.put("label",list);
-                JSONArray jsonArray = jsonObject2.getJSONArray("label");
-                jsonObject.put("id","2");
-                jsonObject.put("labels",jsonArray);
-                //System.out.println(jsonObject.toString());
-
-//                System.out.println("Detected labels for " + getUrl());
-//                for (Label label: labels) {
-//                    System.out.println(label.getName() + ": " + label.getConfidence().toString());
-//                }
-
-            } catch (AmazonRekognitionException e) {
-                e.printStackTrace();
+                serviceOutput.putImageServiceResult(serviceType, imageLabels);
             }
-
-        }catch (Exception e){
-            e.printStackTrace();
+        }catch (IOException e){
+            log.error("IOException: "+e.getMessage(),e);
         }
-
-        return jsonObject;
-
-    }
-
-    //google's method to send image for labeling. only for reference because an easier way to do this is discovered
-//    public void detectLabels( PrintStream out) throws Exception, IOException {
-//        List<AnnotateImageRequest> requests = new ArrayList<>();
-//
-//        InputStream in = get();
-//
-//        ByteString imgBytes = ByteString.readFrom(in);
-//
-//        Image img = Image.newBuilder().setContent(imgBytes).build();
-//        Feature feat = Feature.newBuilder().setType(Type.LABEL_DETECTION).build();
-//        AnnotateImageRequest request =
-//                AnnotateImageRequest.newBuilder().addFeatures(feat).setImage(img).build();
-//        requests.add(request);
-//
-//        try (ImageAnnotatorClient client = ImageAnnotatorClient.create()) {
-//            BatchAnnotateImagesResponse response = client.batchAnnotateImages(requests);
-//            List<AnnotateImageResponse> responses = response.getResponsesList();
-//
-//            for (AnnotateImageResponse res : responses) {
-//                if (res.hasError()) {
-//                    out.printf("Error: %s\n", res.getError().getMessage());
-//                    return;
-//                }
-//
-//                // For full list of available annotations, see http://g.co/cloud/vision/docs
-//                for (EntityAnnotation annotation : res.getLabelAnnotationsList()) {
-//                    annotation.getAllFields().forEach((k, v) -> out.printf("%s : %s\n", k, v.toString()));
-//                }
-//            }
-//        }
-//    }
-
-
-
-     //this method is current in image controller. It should be here. experiencing problems with nullpointerexception. need to be fixed
-//    public void googleImageLabeling(){
-//        System.out.println("point1");
-//        AnnotateImageResponse response = this.cloudVisionTemplate.analyzeImage(this.resourceLoader.getResource(this.url), Feature.Type.LABEL_DETECTION);
-//        System.out.println("point2");
-//        Map<String, Float> imageLabels = response.getLabelAnnotationsList().stream().collect(Collectors.toMap(
-//                EntityAnnotation::getDescription,
-//                EntityAnnotation::getScore,
-//                (u , v)->{
-//                    throw new IllegalStateException(String.format("Duplicate key %s, u"));
-//                },
-//                LinkedHashMap::new));
-//        System.out.println("point3");
-//
-//        for (String key: imageLabels.keySet()){
-//            System.out.println(key);
-//            System.out.println(imageLabels.get(key));
-//        }
-//
-//
-//    }
-
-
-
-
-
-
-
-    public String getUrl() {
-        return url;
+        return serviceOutput;
     }
 
     /**
-     * Determines the query using the requestParams and this.url and this.workPid
+     * This method processes images stored in a local folder, and write the result in a csv file, and to be downloaded from a browser
+     * @param services list of services requested
+     */
+    public void processImages(List<ServiceType> services, HttpServletResponse response){
+        List<String[]> resultList = new ArrayList<>();
+        resultList.add(new ServiceOutput(services).makeCsvTitles());
+        try {
+            Map<String,String> imageList = InOut.loadImagePathAsList(config.getTestImageLocation());
+            int imageNumber = 0;
+            int totalNumberOfImages = imageList.size();
+            for(String pid: imageList.keySet()){
+                log.info("Progress: {}/{},  Processing Image: {}", imageNumber + 1, totalNumberOfImages, pid);
+                ServiceOutput serviceOutput = new ServiceOutput(pid, services);
+                byte[] imageAsByteArray = IOUtils.toByteArray(InOut.loadImage(imageList.get(pid)));
+                serviceOutput.loadTestTargets(config.getTestLabelLocation());
+                for (ServiceType serviceType : services) {
+                    ImageLabels imageLabels = callImageService(imageAsByteArray, serviceType);
+                    List<ImageLabel> testTarget = serviceOutput.getTestTarget();
+                    if (testTarget.size() > 0) {
+                        imageLabels.getEvaluation(testTarget, config.getWordThreshold());
+                    }
+                    serviceOutput.putImageServiceResult(serviceType, imageLabels);
+                }
+                resultList.add(serviceOutput.toCsv());
+                imageNumber+=1;
+            }
+            exportCSV(resultList, response);
+        }catch (IOException e){
+            log.error("IOException: "+e.getMessage(),e);
+        }
+    }
+
+
+
+    /**
+     * The method checks which service is being called and then call the service
+     * @param imageAsByteArray The byte array of the image being processed
+     * @param serviceType The cloud service type that's being used to label the image
+     * @return an instance of ImageLabels storing the results
      */
 
+    public ImageLabels callImageService(byte [] imageAsByteArray, ServiceType serviceType){
+        switch (serviceType){
+            case GL:
+                return googleImageService.googleImageLabeling(imageAsByteArray);
+            case AL:
+                return awsImageService.AWSImageLabeling(imageAsByteArray,config.getAWSAccessKey(),config.getAWSSecretKey());
+            case ML:
+                return azureImageService.azureImageLabeling(imageAsByteArray,config.getAzureAccessKey(),config.getAzureEndPoint());
+            case MD:
+                return azureImageService.azureImageDescription(imageAsByteArray,config.getAzureAccessKey(),config.getAzureEndPoint());
+            default:
+                log.info("Parameters contains: {}, it is not a available service.",ServiceType.MD.getDescription());
+                return new ImageLabels(serviceType);
+        }
+    }
 
+    /**
+     * This method saves a image using byte array
+     * @param imageAsByteArray the byte array of the image being saved
+     */
+    public void saveImage(byte[] imageAsByteArray) throws IOException{
+        InOut.saveImage(imageAsByteArray,config.getImageSaveLocation());
+    }
+
+    public void exportCSV(List<String[]> resultList, HttpServletResponse response)throws IOException{
+        response.reset();
+        String filename = "result.csv";
+        response.setContentType("text/csv");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\""+ filename+"\"");
+        InOut.csvWriterOneByOne(resultList, response.getWriter());
+    }
 }
