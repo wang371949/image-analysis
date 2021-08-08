@@ -1,5 +1,5 @@
 # machine-learning
-Image labeling
+Image labeling： the project completed during Internship with Australian National library in 2020 
 
 Command to start: 
 mvn clean install
