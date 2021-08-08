@@ -1,12 +1,29 @@
 package au.gov.nla.imageanalysis.enums;
 
 public enum ServiceType {
-    GOOGLE_LABELING_SERVICE("1"),
-    AWS_LABELING_SERVICE("2");
+    GL("GL",1, "Google Image Labeling"),
+    AL("AL",2,"AWS Image Labeling"),
+    ML("ML",3, "Microsoft Image Labeling"),
+    MD("MD",4, "Microsoft Image Description");
 
-    private String code;
+    private final String code;
+    private final int id;
+    private final String description;
 
-    private ServiceType(String code){this.code=code;}
 
-    public String code(){return this.code;}
+    ServiceType(String code, int id, String description){
+        this.code=code;
+        this.id = id;
+        this.description =description;
+    }
+
+
+    public String getCode(){return this.code;}
+    public int getId(){return this.id;}
+    public String getDescription(){return this.description;}
+
+    @Override
+    public String toString(){
+        return this.getCode();
+    }
 }
